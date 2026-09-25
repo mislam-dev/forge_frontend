@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@/lib/validation/zodResolver';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,6 +13,21 @@ import { useToast } from '@/components/ui/use-toast';
 import { useCreateProject } from '@/lib/hooks/api/useProjects';
 import { useWorkspaceStore } from '@/lib/store/useWorkspaceStore';
 import { ProjectRuntime, ProjectType } from '@/lib/api/types';
+import {
+  projectStep1Schema,
+  projectStep2Schema,
+  ProjectStep1Values,
+  ProjectStep2Values,
+} from '@/lib/validation/projects';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import {
   ArrowLeft,
   ArrowRight,
@@ -37,16 +54,24 @@ export default function NewProjectWizardPage() {
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
-  // Form state
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [runtime, setRuntime] = useState<ProjectRuntime>('rust');
-  const [projectType, setProjectType] = useState<ProjectType>('repo');
+  const step1Form = useForm<ProjectStep1Values>({
+    resolver: zodResolver(projectStep1Schema),
+    defaultValues: {
+      name: '',
+      description: '',
+      runtime: 'rust',
+      project_type: 'repo',
+    },
+  });
 
-  // Step 2 state
-  const [repoUrl, setRepoUrl] = useState('');
-  const [branch, setBranch] = useState('main');
-  const [patToken, setPatToken] = useState('');
+  const step2Form = useForm<ProjectStep2Values>({
+    resolver: zodResolver(projectStep2Schema),
+    defaultValues: {
+      repository_url: '',
+      branch: 'main',
+      pat_token: '',
+    },
+  });
 
   // Step 3 state
   const [envVars, setEnvVars] = useState<EnvVarRow[]>([
@@ -67,45 +92,29 @@ export default function NewProjectWizardPage() {
     setEnvVars((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleNextFromStep1 = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) {
-      toast({
-        title: 'Validation Error',
-        description: 'Project name is required.',
-        variant: 'destructive',
-      });
-      return;
-    }
+  const handleNextFromStep1 = () => {
     setStep(2);
   };
 
-  const handleNextFromStep2 = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!repoUrl.trim()) {
-      toast({
-        title: 'Validation Error',
-        description: 'Git repository URL is required.',
-        variant: 'destructive',
-      });
-      return;
-    }
+  const handleNextFromStep2 = () => {
     setStep(3);
   };
 
   const handleSubmit = async () => {
     try {
+      const step1 = step1Form.getValues();
+      const step2 = step2Form.getValues();
       const validEnvVars = envVars.filter((ev) => ev.key.trim().length > 0);
 
       const created = await createProject.mutateAsync({
-        name: name.trim(),
-        description: description.trim(),
-        runtime,
-        project_type: projectType,
+        name: step1.name.trim(),
+        description: step1.description?.trim() || '',
+        runtime: step1.runtime as ProjectRuntime,
+        project_type: step1.project_type as ProjectType,
         organization_id: activeOrgId || 'org-1',
-        repository_url: repoUrl.trim(),
-        branch: branch.trim() || 'main',
-        pat_token: patToken.trim() || undefined,
+        repository_url: step2.repository_url.trim(),
+        branch: step2.branch.trim() || 'main',
+        pat_token: step2.pat_token?.trim() || undefined,
         env_vars: validEnvVars,
       });
 
@@ -204,122 +213,171 @@ export default function NewProjectWizardPage() {
 
       {/* Step 1: General Info */}
       {step === 1 && (
-        <form onSubmit={handleNextFromStep1} className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-6">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="project-name">Project Name *</Label>
-              <Input
-                id="project-name"
-                placeholder="e.g. Payments Gateway"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
+        <Form {...step1Form}>
+          <form
+            noValidate
+            onSubmit={step1Form.handleSubmit(handleNextFromStep1)}
+            className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-6"
+          >
+            <div className="space-y-4">
+              <FormField
+                control={step1Form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Project Name *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. Payments Gateway" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    <FormDescription>
+                      A human-readable title for your application service.
+                    </FormDescription>
+                  </FormItem>
+                )}
               />
-              <p className="text-xs text-muted-foreground">
-                A human-readable title for your application service.
-              </p>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="project-desc">Description (Optional)</Label>
-              <Textarea
-                id="project-desc"
-                placeholder="Brief summary of service responsibilities and dependencies..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
+              <FormField
+                control={step1Form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description (Optional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Brief summary of service responsibilities and dependencies..."
+                        rows={3}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={step1Form.control}
+                name="runtime"
+                render={({ field }) => (
+                  <FormItem className="space-y-3">
+                    <FormLabel>Application Runtime *</FormLabel>
+                    <FormControl>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {runtimes.map((rt) => (
+                          <button
+                            type="button"
+                            key={rt.id}
+                            onClick={() => field.onChange(rt.id)}
+                            className={`flex flex-col text-left p-3.5 rounded-lg border transition-all ${
+                              field.value === rt.id
+                                ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                                : 'border-border hover:bg-muted/50'
+                            }`}
+                          >
+                            <span className="font-semibold text-sm">{rt.label}</span>
+                            <span className="text-xs text-muted-foreground mt-0.5">
+                              {rt.desc}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
 
-            <div className="space-y-3">
-              <Label>Application Runtime *</Label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {runtimes.map((rt) => (
-                  <button
-                    type="button"
-                    key={rt.id}
-                    onClick={() => setRuntime(rt.id)}
-                    className={`flex flex-col text-left p-3.5 rounded-lg border transition-all ${
-                      runtime === rt.id
-                        ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                        : 'border-border hover:bg-muted/50'
-                    }`}
-                  >
-                    <span className="font-semibold text-sm">{rt.label}</span>
-                    <span className="text-xs text-muted-foreground mt-0.5">{rt.desc}</span>
-                  </button>
-                ))}
-              </div>
+            <div className="flex justify-end pt-4 border-t border-border">
+              <Button type="submit">
+                Next: Git Repository
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
             </div>
-          </div>
-
-          <div className="flex justify-end pt-4 border-t border-border">
-            <Button type="submit">
-              Next: Git Repository
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
-        </form>
+          </form>
+        </Form>
       )}
 
       {/* Step 2: Git Repository */}
       {step === 2 && (
-        <form onSubmit={handleNextFromStep2} className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-6">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="repo-url">Git Repository URL *</Label>
-              <Input
-                id="repo-url"
-                placeholder="https://github.com/organization/repository"
-                value={repoUrl}
-                onChange={(e) => setRepoUrl(e.target.value)}
-                required
+        <Form {...step2Form}>
+          <form
+            noValidate
+            onSubmit={step2Form.handleSubmit(handleNextFromStep2)}
+            className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-6"
+          >
+            <div className="space-y-4">
+              <FormField
+                control={step2Form.control}
+                name="repository_url"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Git Repository URL *</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="https://github.com/organization/repository"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                    <FormDescription>
+                      HTTPS clone URL for your GitHub, GitLab, or self-hosted Git repository.
+                    </FormDescription>
+                  </FormItem>
+                )}
               />
-              <p className="text-xs text-muted-foreground">
-                HTTPS clone URL for your GitHub, GitLab, or self-hosted Git repository.
-              </p>
+
+              <FormField
+                control={step2Form.control}
+                name="branch"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Production Branch *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="main" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    <FormDescription>
+                      Branch targeted for production deployments and automated webhooks.
+                    </FormDescription>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={step2Form.control}
+                name="pat_token"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Personal Access Token (PAT) for Private Repos</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="ghp_xxxxxxxxxxxxxxxxxxxx (Optional if public repo)"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                    <FormDescription>
+                      Encrypted with AES-256-GCM before storage. Only used to clone private code during build.
+                    </FormDescription>
+                  </FormItem>
+                )}
+              />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="branch">Production Branch *</Label>
-              <Input
-                id="branch"
-                placeholder="main"
-                value={branch}
-                onChange={(e) => setBranch(e.target.value)}
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                Branch targeted for production deployments and automated webhooks.
-              </p>
+            <div className="flex items-center justify-between pt-4 border-t border-border">
+              <Button type="button" variant="outline" onClick={() => setStep(1)}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+              <Button type="submit">
+                Next: Environment Variables
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="pat-token">Personal Access Token (PAT) for Private Repos</Label>
-              <Input
-                id="pat-token"
-                type="password"
-                placeholder="ghp_xxxxxxxxxxxxxxxxxxxx (Optional if public repo)"
-                value={patToken}
-                onChange={(e) => setPatToken(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Encrypted with AES-256-GCM before storage. Only used to clone private code during build.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-4 border-t border-border">
-            <Button type="button" variant="outline" onClick={() => setStep(1)}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
-            </Button>
-            <Button type="submit">
-              Next: Environment Variables
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
-        </form>
+          </form>
+        </Form>
       )}
 
       {/* Step 3: Environment Variables */}

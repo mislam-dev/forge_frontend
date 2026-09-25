@@ -15,9 +15,20 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@/lib/validation/zodResolver';
 import { useTeamsList, useCreateTeam, useDeleteTeam } from '@/lib/hooks/api/useTeams';
 import { useWorkspaceStore } from '@/lib/store/useWorkspaceStore';
 import { TeamMembersDialog } from '@/components/teams/TeamMembersDialog';
+import { createTeamSchema, CreateTeamValues } from '@/lib/validation/teams';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Users, Plus, Trash2, Search, Layers, UserCheck } from 'lucide-react';
 
 export default function GlobalTeamsPage() {
@@ -29,39 +40,34 @@ export default function GlobalTeamsPage() {
 
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
   const [managingTeam, setManagingTeam] = useState<{ id: string; name: string } | null>(null);
+
+  const form = useForm<CreateTeamValues>({
+    resolver: zodResolver(createTeamSchema),
+    defaultValues: {
+      name: '',
+      description: '',
+    },
+  });
 
   const filteredTeams = teams.filter((t) =>
     t.name.toLowerCase().includes(search.toLowerCase()) ||
     (t.description && t.description.toLowerCase().includes(search.toLowerCase()))
   );
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) {
-      toast({
-        title: 'Validation Error',
-        description: 'Team name is required.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
+  const handleCreate = async (values: CreateTeamValues) => {
     try {
       await createTeam.mutateAsync({
-        name: name.trim(),
-        description: description.trim(),
+        name: values.name.trim(),
+        description: values.description?.trim() || '',
         org_id: activeOrgId || 'org-1',
       });
 
       toast({
         title: 'Team Created',
-        description: `Team "${name}" created successfully.`,
+        description: `Team "${values.name}" created successfully.`,
       });
-      setName('');
-      setDescription('');
+      form.reset();
       setDialogOpen(false);
     } catch (err: any) {
       toast({
@@ -101,7 +107,15 @@ export default function GlobalTeamsPage() {
           </p>
         </div>
 
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog
+          open={dialogOpen}
+          onOpenChange={(open) => {
+            setDialogOpen(open);
+            if (!open) {
+              form.reset();
+            }
+          }}
+        >
           <DialogTrigger asChild>
             <Button size="sm" className="h-9 text-xs">
               <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -116,38 +130,55 @@ export default function GlobalTeamsPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <form onSubmit={handleCreate} className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label htmlFor="global-team-name">Team Name *</Label>
-                <Input
-                  id="global-team-name"
-                  placeholder="e.g. Frontend Guild"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
+            <Form {...form}>
+              <form noValidate onSubmit={form.handleSubmit(handleCreate)} className="space-y-4 py-2">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Team Name *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. Frontend Guild" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="global-team-desc">Description</Label>
-                <Textarea
-                  id="global-team-desc"
-                  placeholder="Responsibilities, microservices owned, or communication channels..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={2}
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description (Optional)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Responsibilities, microservices owned, or communication channels..."
+                          rows={2}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-border">
-                <Button type="button" variant="outline" size="sm" onClick={() => setDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" size="sm" disabled={createTeam.isPending}>
-                  {createTeam.isPending ? 'Creating...' : 'Create Team'}
-                </Button>
-              </div>
-            </form>
+                <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" size="sm" disabled={createTeam.isPending}>
+                    {createTeam.isPending ? 'Creating...' : 'Create Team'}
+                  </Button>
+                </div>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       </div>

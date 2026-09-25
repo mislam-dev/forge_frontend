@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@/lib/validation/zodResolver';
 import { SettingsHeader } from '@/components/settings/SettingsHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
@@ -14,13 +15,24 @@ import {
   useRevokeSession,
 } from '@/lib/hooks/api/useUserProfile';
 import {
+  securityPasswordSchema,
+  SecurityPasswordValues,
+} from '@/lib/validation/settings';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import {
   Lock,
   KeyRound,
   ShieldCheck,
   Laptop,
   Smartphone,
   Trash2,
-  CheckCircle2,
 } from 'lucide-react';
 
 export default function SecuritySettingsPage() {
@@ -29,43 +41,31 @@ export default function SecuritySettingsPage() {
   const { data: sessions = [], isLoading: isSessionsLoading } = useActiveSessions();
   const revokeSession = useRevokeSession();
 
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const form = useForm<SecurityPasswordValues>({
+    resolver: zodResolver(securityPasswordSchema),
+    defaultValues: {
+      current_password: '',
+      new_password: '',
+      confirm_password: '',
+    },
+  });
 
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newPassword !== confirmPassword) {
-      toast({
-        title: 'Validation Error',
-        description: 'New password and confirmation do not match.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      toast({
-        title: 'Weak Password',
-        description: 'Password must be at least 8 characters long.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
+  const handleChangePassword = async (values: SecurityPasswordValues) => {
     try {
       await changePassword.mutateAsync({
-        current_password: currentPassword,
-        new_password: newPassword,
+        current_password: values.current_password,
+        new_password: values.new_password,
       });
 
       toast({
         title: 'Password Updated',
         description: 'Your account password has been changed successfully.',
       });
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
+      form.reset({
+        current_password: '',
+        new_password: '',
+        confirm_password: '',
+      });
     } catch (err: any) {
       toast({
         title: 'Update Failed',
@@ -107,47 +107,62 @@ export default function SecuritySettingsPage() {
           </p>
         </div>
 
-        <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
-          <div className="space-y-2">
-            <Label htmlFor="current-pw">Current Password</Label>
-            <Input
-              id="current-pw"
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              required
+        <Form {...form}>
+          <form
+            noValidate
+            onSubmit={form.handleSubmit(handleChangePassword)}
+            className="space-y-4 max-w-md"
+          >
+            <FormField
+              control={form.control}
+              name="current_password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Current Password *</FormLabel>
+                  <FormControl>
+                    <Input type="password" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="new-pw">New Password</Label>
-            <Input
-              id="new-pw"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
+            <FormField
+              control={form.control}
+              name="new_password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>New Password *</FormLabel>
+                  <FormControl>
+                    <Input type="password" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="confirm-pw">Confirm New Password</Label>
-            <Input
-              id="confirm-pw"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
+            <FormField
+              control={form.control}
+              name="confirm_password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Confirm New Password *</FormLabel>
+                  <FormControl>
+                    <Input type="password" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
 
-          <div className="pt-2">
-            <Button type="submit" size="sm" disabled={changePassword.isPending}>
-              <KeyRound className="mr-2 h-4 w-4" />
-              {changePassword.isPending ? 'Updating...' : 'Update Password'}
-            </Button>
-          </div>
-        </form>
+            <div className="pt-2">
+              <Button type="submit" size="sm" disabled={changePassword.isPending}>
+                <KeyRound className="mr-2 h-4 w-4" />
+                {changePassword.isPending ? 'Updating...' : 'Update Password'}
+              </Button>
+            </div>
+          </form>
+        </Form>
       </div>
 
       {/* MFA Security Status */}

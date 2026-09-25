@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { useParams } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@/lib/validation/zodResolver';
 import { ProjectHeader } from '@/components/projects/ProjectHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,7 +24,19 @@ import {
   useAssignProjectRole,
   useRevokeProjectRole,
 } from '@/lib/hooks/api/useProjectAccess';
-import { Users, UserPlus, Shield, Trash2, User, UserCheck } from 'lucide-react';
+import {
+  projectAccessAssignSchema,
+  ProjectAccessAssignValues,
+} from '@/lib/validation/projects';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Users, UserPlus, Trash2 } from 'lucide-react';
 
 export default function ProjectAccessPage() {
   const params = useParams();
@@ -34,33 +48,35 @@ export default function ProjectAccessPage() {
   const revokeRole = useRevokeProjectRole(projectId);
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [targetName, setTargetName] = useState('');
-  const [targetType, setTargetType] = useState<'user' | 'team'>('team');
-  const [role, setRole] = useState<'Admin' | 'Member' | 'Viewer'>('Member');
 
-  const handleAssign = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!targetName.trim()) {
-      toast({
-        title: 'Validation Error',
-        description: 'Target name or email is required.',
-        variant: 'destructive',
-      });
-      return;
-    }
+  const form = useForm<ProjectAccessAssignValues>({
+    resolver: zodResolver(projectAccessAssignSchema),
+    defaultValues: {
+      target_type: 'team',
+      target_id: '',
+      role: 'Member',
+    },
+  });
 
+  const targetType = form.watch('target_type');
+
+  const handleAssign = async (values: ProjectAccessAssignValues) => {
     try {
       await assignRole.mutateAsync({
-        target_id: targetName.trim(),
-        target_type: targetType,
-        role,
+        target_id: values.target_id.trim(),
+        target_type: values.target_type,
+        role: values.role,
       });
 
       toast({
         title: 'Role Assigned',
-        description: `${role} role assigned to ${targetName}.`,
+        description: `${values.role} role assigned to ${values.target_id}.`,
       });
-      setTargetName('');
+      form.reset({
+        target_type: 'team',
+        target_id: '',
+        role: 'Member',
+      });
       setDialogOpen(false);
     } catch (err: any) {
       toast({
@@ -105,7 +121,15 @@ export default function ProjectAccessPage() {
             </p>
           </div>
 
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog
+            open={dialogOpen}
+            onOpenChange={(open) => {
+              setDialogOpen(open);
+              if (!open) {
+                form.reset();
+              }
+            }}
+          >
             <DialogTrigger asChild>
               <Button size="sm" className="h-9 text-xs">
                 <UserPlus className="mr-1.5 h-3.5 w-3.5" />
@@ -120,67 +144,105 @@ export default function ProjectAccessPage() {
                 </DialogDescription>
               </DialogHeader>
 
-              <form onSubmit={handleAssign} className="space-y-4 py-2">
-                <div className="space-y-2">
-                  <Label>Grant Access To</Label>
-                  <div className="grid grid-cols-2 gap-2">
+              <Form {...form}>
+                <form
+                  noValidate
+                  onSubmit={form.handleSubmit(handleAssign)}
+                  className="space-y-4 py-2"
+                >
+                  <FormField
+                    control={form.control}
+                    name="target_type"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Grant Access To</FormLabel>
+                        <FormControl>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Button
+                              type="button"
+                              variant={field.value === 'team' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => field.onChange('team')}
+                              className="text-xs"
+                            >
+                              Team
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={field.value === 'user' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => field.onChange('user')}
+                              className="text-xs"
+                            >
+                              Individual User
+                            </Button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="target_id"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>
+                          {targetType === 'team' ? 'Team Name *' : 'User Email or Handle *'}
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder={
+                              targetType === 'team'
+                                ? 'e.g. SRE & Infra Team'
+                                : 'e.g. alex@forge.dev'
+                            }
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="role"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Access Level</FormLabel>
+                        <FormControl>
+                          <select
+                            value={field.value}
+                            onChange={(e) => field.onChange(e.target.value)}
+                            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                          >
+                            <option value="Admin">Admin (Full Control, Secrets, Delete)</option>
+                            <option value="Member">Member (Deploy, View Logs, Trigger)</option>
+                            <option value="Viewer">Viewer (Read-only, View Logs)</option>
+                          </select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex justify-end gap-2 pt-2 border-t border-border">
                     <Button
                       type="button"
-                      variant={targetType === 'team' ? 'default' : 'outline'}
+                      variant="outline"
                       size="sm"
-                      onClick={() => setTargetType('team')}
-                      className="text-xs"
+                      onClick={() => setDialogOpen(false)}
                     >
-                      Team
+                      Cancel
                     </Button>
-                    <Button
-                      type="button"
-                      variant={targetType === 'user' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setTargetType('user')}
-                      className="text-xs"
-                    >
-                      Individual User
+                    <Button type="submit" size="sm" disabled={assignRole.isPending}>
+                      {assignRole.isPending ? 'Assigning...' : 'Confirm Assignment'}
                     </Button>
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="target-name">
-                    {targetType === 'team' ? 'Team Name' : 'User Email or Handle'}
-                  </Label>
-                  <Input
-                    id="target-name"
-                    placeholder={targetType === 'team' ? 'e.g. SRE & Infra Team' : 'e.g. alex@forge.dev'}
-                    value={targetName}
-                    onChange={(e) => setTargetName(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="role-select">Access Level</Label>
-                  <select
-                    id="role-select"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value as any)}
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    <option value="Admin">Admin (Full Control, Secrets, Delete)</option>
-                    <option value="Member">Member (Deploy, View Logs, Trigger)</option>
-                    <option value="Viewer">Viewer (Read-only, View Logs)</option>
-                  </select>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2 border-t border-border">
-                  <Button type="button" variant="outline" size="sm" onClick={() => setDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" size="sm" disabled={assignRole.isPending}>
-                    {assignRole.isPending ? 'Assigning...' : 'Confirm Assignment'}
-                  </Button>
-                </div>
-              </form>
+                </form>
+              </Form>
             </DialogContent>
           </Dialog>
         </div>

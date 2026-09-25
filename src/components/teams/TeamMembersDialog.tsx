@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@/lib/validation/zodResolver';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,7 +21,16 @@ import {
   useAddTeamMember,
   useRemoveTeamMember,
 } from '@/lib/hooks/api/useTeams';
-import { Users, UserPlus, Trash2, Mail, Shield } from 'lucide-react';
+import { addTeamMemberSchema, AddTeamMemberValues } from '@/lib/validation/teams';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Users, UserPlus, Trash2 } from 'lucide-react';
 
 interface TeamMembersDialogProps {
   teamId: string;
@@ -49,37 +60,35 @@ export function TeamMembersDialog({
   const addMemberMutation = useAddTeamMember(teamId);
   const removeMemberMutation = useRemoveTeamMember(teamId);
 
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'Lead' | 'Maintainer' | 'Member' | 'Viewer'>('Member');
   const [showAddForm, setShowAddForm] = useState(false);
   const [deletingMemberId, setDeletingMemberId] = useState<string | null>(null);
 
-  const handleAddMember = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !email.trim()) {
-      toast({
-        title: 'Validation Error',
-        description: 'Name and email are both required.',
-        variant: 'destructive',
-      });
-      return;
-    }
+  const form = useForm<AddTeamMemberValues>({
+    resolver: zodResolver(addTeamMemberSchema),
+    defaultValues: {
+      name: '',
+      email: '',
+      role: 'Member',
+    },
+  });
 
+  const handleAddMember = async (values: AddTeamMemberValues) => {
     try {
       await addMemberMutation.mutateAsync({
-        name: name.trim(),
-        email: email.trim(),
-        role,
+        name: values.name.trim(),
+        email: values.email.trim(),
+        role: values.role,
       });
 
       toast({
         title: 'Member Added',
-        description: `${name} has been added to ${teamName}.`,
+        description: `${values.name} has been added to ${teamName}.`,
       });
-      setName('');
-      setEmail('');
-      setRole('Member');
+      form.reset({
+        name: '',
+        email: '',
+        role: 'Member',
+      });
       setShowAddForm(false);
     } catch (err: any) {
       toast({
@@ -114,7 +123,16 @@ export function TeamMembersDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        onOpenChange(open);
+        if (!open) {
+          setShowAddForm(false);
+          form.reset();
+        }
+      }}
+    >
       <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
         <DialogHeader>
           <div className="flex items-center gap-2">
@@ -138,7 +156,10 @@ export function TeamMembersDialog({
             type="button"
             variant={showAddForm ? 'outline' : 'default'}
             size="sm"
-            onClick={() => setShowAddForm(!showAddForm)}
+            onClick={() => {
+              setShowAddForm(!showAddForm);
+              if (showAddForm) form.reset();
+            }}
             className="h-8 text-xs"
           >
             <UserPlus className="mr-1.5 h-3.5 w-3.5" />
@@ -148,82 +169,102 @@ export function TeamMembersDialog({
 
         {/* Add Member Form */}
         {showAddForm && (
-          <form
-            onSubmit={handleAddMember}
-            className="p-4 rounded-lg border border-border bg-muted/40 space-y-3 animate-in fade-in duration-200"
-          >
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground">
-              Add New Member
-            </h4>
+          <Form {...form}>
+            <form
+              noValidate
+              onSubmit={form.handleSubmit(handleAddMember)}
+              className="p-4 rounded-lg border border-border bg-muted/40 space-y-3 animate-in fade-in duration-200"
+            >
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground">
+                Add New Member
+              </h4>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="member-name" className="text-xs">
-                  Full Name *
-                </Label>
-                <Input
-                  id="member-name"
-                  placeholder="e.g. John Doe"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="h-8 text-xs"
-                  required
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1.5">
+                      <FormLabel className="text-xs">Full Name *</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g. John Doe"
+                          className="h-8 text-xs"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1.5">
+                      <FormLabel className="text-xs">Email Address *</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="e.g. john@forge.dev"
+                          className="h-8 text-xs"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="member-email" className="text-xs">
-                  Email Address *
-                </Label>
-                <Input
-                  id="member-email"
-                  type="email"
-                  placeholder="e.g. john@forge.dev"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="h-8 text-xs"
-                  required
-                />
+              <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem className="space-y-1.5">
+                    <FormLabel className="text-xs">Team Role</FormLabel>
+                    <FormControl>
+                      <select
+                        value={field.value}
+                        onChange={(e) => field.onChange(e.target.value as any)}
+                        className="h-8 w-full rounded-md border border-input bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                      >
+                        <option value="Lead">Lead (Team lead & architecture ownership)</option>
+                        <option value="Maintainer">Maintainer (Service updates & configurations)</option>
+                        <option value="Member">Member (Deployments & environment access)</option>
+                        <option value="Viewer">Viewer (Read-only observability)</option>
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    setShowAddForm(false);
+                    form.reset();
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="h-7 text-xs"
+                  disabled={addMemberMutation.isPending}
+                >
+                  {addMemberMutation.isPending ? 'Adding...' : 'Add to Team'}
+                </Button>
               </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="member-role" className="text-xs">
-                Team Role
-              </Label>
-              <select
-                id="member-role"
-                value={role}
-                onChange={(e) => setRole(e.target.value as any)}
-                className="h-8 w-full rounded-md border border-input bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              >
-                <option value="Lead">Lead (Team lead & architecture ownership)</option>
-                <option value="Maintainer">Maintainer (Service updates & configurations)</option>
-                <option value="Member">Member (Deployments & environment access)</option>
-                <option value="Viewer">Viewer (Read-only observability)</option>
-              </select>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => setShowAddForm(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                size="sm"
-                className="h-7 text-xs"
-                disabled={addMemberMutation.isPending}
-              >
-                {addMemberMutation.isPending ? 'Adding...' : 'Add to Team'}
-              </Button>
-            </div>
-          </form>
+            </form>
+          </Form>
         )}
 
         {/* Member List */}

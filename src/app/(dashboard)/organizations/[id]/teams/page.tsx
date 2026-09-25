@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { useParams } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@/lib/validation/zodResolver';
 import { OrgHeader } from '@/components/organizations/OrgHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +22,15 @@ import { useToast } from '@/components/ui/use-toast';
 import { useOrgTeams } from '@/lib/hooks/api/useOrganizations';
 import { useCreateTeam } from '@/lib/hooks/api/useTeams';
 import { TeamMembersDialog } from '@/components/teams/TeamMembersDialog';
+import { createTeamSchema, CreateTeamValues } from '@/lib/validation/teams';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Layers, Plus, Users, UserCheck } from 'lucide-react';
 
 export default function OrgTeamsPage() {
@@ -31,34 +42,29 @@ export default function OrgTeamsPage() {
   const createTeam = useCreateTeam();
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [teamName, setTeamName] = useState('');
-  const [teamDesc, setTeamDesc] = useState('');
   const [managingTeam, setManagingTeam] = useState<{ id: string; name: string } | null>(null);
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!teamName.trim()) {
-      toast({
-        title: 'Validation Error',
-        description: 'Team name is required.',
-        variant: 'destructive',
-      });
-      return;
-    }
+  const form = useForm<CreateTeamValues>({
+    resolver: zodResolver(createTeamSchema),
+    defaultValues: {
+      name: '',
+      description: '',
+    },
+  });
 
+  const handleCreate = async (values: CreateTeamValues) => {
     try {
       await createTeam.mutateAsync({
-        name: teamName.trim(),
-        description: teamDesc.trim(),
+        name: values.name.trim(),
+        description: values.description?.trim() || '',
         org_id: orgId,
       });
 
       toast({
         title: 'Team Created',
-        description: `Team "${teamName}" created successfully.`,
+        description: `Team "${values.name}" created successfully.`,
       });
-      setTeamName('');
-      setTeamDesc('');
+      form.reset();
       setDialogOpen(false);
     } catch (err: any) {
       toast({
@@ -85,7 +91,15 @@ export default function OrgTeamsPage() {
             </p>
           </div>
 
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog
+            open={dialogOpen}
+            onOpenChange={(open) => {
+              setDialogOpen(open);
+              if (!open) {
+                form.reset();
+              }
+            }}
+          >
             <DialogTrigger asChild>
               <Button size="sm" className="h-9 text-xs">
                 <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -100,38 +114,55 @@ export default function OrgTeamsPage() {
                 </DialogDescription>
               </DialogHeader>
 
-              <form onSubmit={handleCreate} className="space-y-4 py-2">
-                <div className="space-y-2">
-                  <Label htmlFor="t-name">Team Name *</Label>
-                  <Input
-                    id="t-name"
-                    placeholder="e.g. SRE & Infrastructure"
-                    value={teamName}
-                    onChange={(e) => setTeamName(e.target.value)}
-                    required
+              <Form {...form}>
+                <form noValidate onSubmit={form.handleSubmit(handleCreate)} className="space-y-4 py-2">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Team Name *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. SRE & Infrastructure" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="t-desc">Description</Label>
-                  <Textarea
-                    id="t-desc"
-                    placeholder="Responsibilities and projects owned by this team..."
-                    value={teamDesc}
-                    onChange={(e) => setTeamDesc(e.target.value)}
-                    rows={2}
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Responsibilities and projects owned by this team..."
+                            rows={2}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
 
-                <div className="flex justify-end gap-2 pt-2 border-t border-border">
-                  <Button type="button" variant="outline" size="sm" onClick={() => setDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" size="sm" disabled={createTeam.isPending}>
-                    {createTeam.isPending ? 'Creating...' : 'Create Team'}
-                  </Button>
-                </div>
-              </form>
+                  <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDialogOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" size="sm" disabled={createTeam.isPending}>
+                      {createTeam.isPending ? 'Creating...' : 'Create Team'}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
             </DialogContent>
           </Dialog>
         </div>

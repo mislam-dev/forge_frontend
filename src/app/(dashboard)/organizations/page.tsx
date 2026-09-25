@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@/lib/validation/zodResolver';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,14 +21,20 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { useOrganizationsList, useCreateOrganization } from '@/lib/hooks/api/useOrganizations';
 import { useWorkspaceStore } from '@/lib/store/useWorkspaceStore';
+import { createOrgSchema, CreateOrgValues } from '@/lib/validation/organizations';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import {
   Building2,
   Plus,
   ArrowRight,
   Check,
-  Users,
-  Shield,
-  Briefcase,
 } from 'lucide-react';
 
 export default function OrganizationsPage() {
@@ -36,26 +44,22 @@ export default function OrganizationsPage() {
   const createOrg = useCreateOrganization();
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [type, setType] = useState('Team');
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) {
-      toast({
-        title: 'Validation Error',
-        description: 'Organization name is required.',
-        variant: 'destructive',
-      });
-      return;
-    }
+  const form = useForm<CreateOrgValues>({
+    resolver: zodResolver(createOrgSchema),
+    defaultValues: {
+      name: '',
+      description: '',
+      type: 'Team',
+    },
+  });
 
+  const handleCreate = async (values: CreateOrgValues) => {
     try {
       const created = await createOrg.mutateAsync({
-        name: name.trim(),
-        description: description.trim(),
-        type,
+        name: values.name.trim(),
+        description: values.description?.trim() || '',
+        type: values.type,
       });
 
       toast({
@@ -65,8 +69,7 @@ export default function OrganizationsPage() {
 
       setActiveOrgId(created.id);
       setActiveOrgName(created.name);
-      setName('');
-      setDescription('');
+      form.reset();
       setDialogOpen(false);
     } catch (err: any) {
       toast({
@@ -97,7 +100,15 @@ export default function OrganizationsPage() {
           </p>
         </div>
 
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog
+          open={dialogOpen}
+          onOpenChange={(open) => {
+            setDialogOpen(open);
+            if (!open) {
+              form.reset();
+            }
+          }}
+        >
           <DialogTrigger asChild>
             <Button className="h-9 text-xs">
               <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -112,52 +123,77 @@ export default function OrganizationsPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <form onSubmit={handleCreate} className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label htmlFor="org-name">Organization Name *</Label>
-                <Input
-                  id="org-name"
-                  placeholder="e.g. Acme Corp"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
+            <Form {...form}>
+              <form noValidate onSubmit={form.handleSubmit(handleCreate)} className="space-y-4 py-2">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Organization Name *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. Acme Corp" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="org-desc">Description (Optional)</Label>
-                <Textarea
-                  id="org-desc"
-                  placeholder="Brief summary of company or business unit..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={2}
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description (Optional)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Brief summary of company or business unit..."
+                          rows={2}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="org-type">Workspace Type</Label>
-                <select
-                  id="org-type"
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="Team">Team (Collaborative)</option>
-                  <option value="Enterprise">Enterprise (SAML SSO, Vault)</option>
-                  <option value="Personal">Personal (Sandbox)</option>
-                </select>
-              </div>
+                <FormField
+                  control={form.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Workspace Type</FormLabel>
+                      <FormControl>
+                        <select
+                          value={field.value}
+                          onChange={(e) => field.onChange(e.target.value as any)}
+                          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                        >
+                          <option value="Team">Team (Collaborative)</option>
+                          <option value="Enterprise">Enterprise (SAML SSO, Vault)</option>
+                          <option value="Personal">Personal (Sandbox)</option>
+                        </select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-border">
-                <Button type="button" variant="outline" size="sm" onClick={() => setDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" size="sm" disabled={createOrg.isPending}>
-                  {createOrg.isPending ? 'Creating...' : 'Create Workspace'}
-                </Button>
-              </div>
-            </form>
+                <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" size="sm" disabled={createOrg.isPending}>
+                    {createOrg.isPending ? 'Creating...' : 'Create Workspace'}
+                  </Button>
+                </div>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       </div>

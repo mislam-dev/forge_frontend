@@ -1,42 +1,64 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@/lib/validation/zodResolver';
 import { SettingsHeader } from '@/components/settings/SettingsHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { useUserProfile, useUpdateUserProfile } from '@/lib/hooks/api/useUserProfile';
-import { Save, User, Mail, Phone, Image as ImageIcon } from 'lucide-react';
+import {
+  profileSettingsSchema,
+  ProfileSettingsValues,
+} from '@/lib/validation/settings';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Save, Phone, Image as ImageIcon } from 'lucide-react';
 
 export default function ProfileSettingsPage() {
   const { toast } = useToast();
   const { data: profile, isLoading } = useUserProfile();
   const updateProfile = useUpdateUserProfile();
 
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
+  const form = useForm<ProfileSettingsValues>({
+    resolver: zodResolver(profileSettingsSchema),
+    defaultValues: {
+      first_name: '',
+      last_name: '',
+      phone: '',
+      image: '',
+    },
+  });
+
+  const firstName = form.watch('first_name');
+  const lastName = form.watch('last_name');
 
   useEffect(() => {
     if (profile) {
-      setFirstName(profile.first_name || '');
-      setLastName(profile.last_name || '');
-      setPhone(profile.phone || '');
-      setImageUrl(profile.image || '');
+      form.reset({
+        first_name: profile.first_name || '',
+        last_name: profile.last_name || '',
+        phone: profile.phone || '',
+        image: profile.image || '',
+      });
     }
-  }, [profile]);
+  }, [profile, form]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (values: ProfileSettingsValues) => {
     try {
       await updateProfile.mutateAsync({
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        phone: phone.trim() || undefined,
-        image: imageUrl.trim() || undefined,
+        first_name: values.first_name.trim(),
+        last_name: values.last_name.trim(),
+        phone: values.phone?.trim() || undefined,
+        image: values.image?.trim() || undefined,
       });
 
       toast({
@@ -80,64 +102,88 @@ export default function ProfileSettingsPage() {
             <Skeleton className="h-10 w-full" />
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="first-name">First Name *</Label>
-                <Input
-                  id="first-name"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  required
+          <Form {...form}>
+            <form noValidate onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="first_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>First Name *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. Monirul" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="last_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Last Name *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. Islam" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="last-name">Last Name *</Label>
-                <Input
-                  id="last-name"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone Number</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="+1 (555) 000-0000"
+                          className="pl-9 text-sm"
+                          {...field}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="phone"
-                  placeholder="+1 (555) 000-0000"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="pl-9 text-sm"
-                />
-              </div>
-            </div>
+              <FormField
+                control={form.control}
+                name="image"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Avatar Photo URL</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="https://..."
+                          className="pl-9 text-sm font-mono text-xs"
+                          {...field}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <div className="space-y-2">
-              <Label htmlFor="image-url">Avatar Photo URL</Label>
-              <div className="relative">
-                <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="image-url"
-                  placeholder="https://..."
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  className="pl-9 text-sm font-mono text-xs"
-                />
+              <div className="flex justify-end pt-4 border-t border-border">
+                <Button type="submit" disabled={updateProfile.isPending}>
+                  <Save className="mr-2 h-4 w-4" />
+                  {updateProfile.isPending ? 'Saving...' : 'Save Profile'}
+                </Button>
               </div>
-            </div>
-
-            <div className="flex justify-end pt-4 border-t border-border">
-              <Button type="submit" disabled={updateProfile.isPending}>
-                <Save className="mr-2 h-4 w-4" />
-                {updateProfile.isPending ? 'Saving...' : 'Save Profile'}
-              </Button>
-            </div>
-          </form>
+            </form>
+          </Form>
         )}
       </div>
     </div>

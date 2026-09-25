@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { useParams } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@/lib/validation/zodResolver';
 import { OrgHeader } from '@/components/organizations/OrgHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,7 +20,16 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { useOrgMembers, useInviteOrgMember } from '@/lib/hooks/api/useOrganizations';
-import { Users, UserPlus, Mail, Shield } from 'lucide-react';
+import { inviteMemberSchema, InviteMemberValues } from '@/lib/validation/organizations';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Users, UserPlus, Mail } from 'lucide-react';
 
 export default function OrgMembersPage() {
   const params = useParams();
@@ -29,31 +40,30 @@ export default function OrgMembersPage() {
   const inviteMember = useInviteOrgMember(orgId);
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'Admin' | 'Member' | 'Viewer'>('Member');
 
-  const handleInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) {
-      toast({
-        title: 'Validation Error',
-        description: 'Email address is required.',
-        variant: 'destructive',
-      });
-      return;
-    }
+  const form = useForm<InviteMemberValues>({
+    resolver: zodResolver(inviteMemberSchema),
+    defaultValues: {
+      email: '',
+      role: 'Member',
+    },
+  });
 
+  const handleInvite = async (values: InviteMemberValues) => {
     try {
       await inviteMember.mutateAsync({
-        email: email.trim(),
-        role,
+        email: values.email.trim(),
+        role: values.role,
       });
 
       toast({
         title: 'Invitation Sent',
-        description: `Invited ${email} with role "${role}".`,
+        description: `Invited ${values.email} with role "${values.role}".`,
       });
-      setEmail('');
+      form.reset({
+        email: '',
+        role: 'Member',
+      });
       setDialogOpen(false);
     } catch (err: any) {
       toast({
@@ -80,7 +90,15 @@ export default function OrgMembersPage() {
             </p>
           </div>
 
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog
+            open={dialogOpen}
+            onOpenChange={(open) => {
+              setDialogOpen(open);
+              if (!open) {
+                form.reset();
+              }
+            }}
+          >
             <DialogTrigger asChild>
               <Button size="sm" className="h-9 text-xs">
                 <UserPlus className="mr-1.5 h-3.5 w-3.5" />
@@ -95,46 +113,67 @@ export default function OrgMembersPage() {
                 </DialogDescription>
               </DialogHeader>
 
-              <form onSubmit={handleInvite} className="space-y-4 py-2">
-                <div className="space-y-2">
-                  <Label htmlFor="invite-email">Teammate Email Address *</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="invite-email"
-                      type="email"
-                      placeholder="colleague@company.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="pl-9 text-sm"
-                      required
-                    />
+              <Form {...form}>
+                <form noValidate onSubmit={form.handleSubmit(handleInvite)} className="space-y-4 py-2">
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Teammate Email Address *</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              type="email"
+                              placeholder="colleague@company.com"
+                              className="pl-9 text-sm"
+                              {...field}
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="role"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Organization Role</FormLabel>
+                        <FormControl>
+                          <select
+                            value={field.value}
+                            onChange={(e) => field.onChange(e.target.value as any)}
+                            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                          >
+                            <option value="Admin">Admin (Manage members, all projects, billing)</option>
+                            <option value="Member">Member (Create and deploy projects)</option>
+                            <option value="Viewer">Viewer (Read-only access across projects)</option>
+                          </select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDialogOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" size="sm" disabled={inviteMember.isPending}>
+                      {inviteMember.isPending ? 'Sending...' : 'Send Invitation'}
+                    </Button>
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="invite-role">Organization Role</Label>
-                  <select
-                    id="invite-role"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value as any)}
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    <option value="Admin">Admin (Manage members, all projects, billing)</option>
-                    <option value="Member">Member (Create and deploy projects)</option>
-                    <option value="Viewer">Viewer (Read-only access across projects)</option>
-                  </select>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2 border-t border-border">
-                  <Button type="button" variant="outline" size="sm" onClick={() => setDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" size="sm" disabled={inviteMember.isPending}>
-                    {inviteMember.isPending ? 'Sending...' : 'Send Invitation'}
-                  </Button>
-                </div>
-              </form>
+                </form>
+              </Form>
             </DialogContent>
           </Dialog>
         </div>
