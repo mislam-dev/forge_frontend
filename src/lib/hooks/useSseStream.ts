@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { simulateBuildStream } from '../api/mock/stream';
 
 export interface UseSseStreamOptions {
   url: string;
   enabled?: boolean;
   maxBufferLines?: number;
+  enableSimulationFallback?: boolean;
 }
 
 export interface UseSseStreamReturn {
@@ -20,6 +22,7 @@ export function useSseStream({
   url,
   enabled = true,
   maxBufferLines = 5000,
+  enableSimulationFallback = true,
 }: UseSseStreamOptions): UseSseStreamReturn {
   const [logLines, setLogLines] = useState<string[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -29,6 +32,7 @@ export function useSseStream({
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
+  const stopSimulationRef = useRef<(() => void) | null>(null);
 
   const appendLine = useCallback(
     (line: string) => {
@@ -48,6 +52,18 @@ export function useSseStream({
 
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
+    }
+    if (stopSimulationRef.current) {
+      stopSimulationRef.current();
+      stopSimulationRef.current = null;
+    }
+
+    const isMockEnabled = process.env.NEXT_PUBLIC_ENABLE_MOCKS === 'true';
+    if (isMockEnabled && enableSimulationFallback) {
+      setIsConnected(true);
+      setIsReconnecting(false);
+      stopSimulationRef.current = simulateBuildStream(appendLine);
+      return;
     }
 
     const token = localStorage.getItem('forge_access_token');
@@ -97,23 +113,34 @@ export function useSseStream({
         eventSource.close();
         eventSourceRef.current = null;
 
-        if (reconnectAttemptsRef.current < 5) {
+        if (reconnectAttemptsRef.current < 2) {
           setIsReconnecting(true);
           const delay = Math.min(1000 * 2 ** reconnectAttemptsRef.current, 10000);
           reconnectAttemptsRef.current += 1;
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
           }, delay);
+        } else if (enableSimulationFallback) {
+          // Fall back gracefully to mock log emitter
+          setIsReconnecting(false);
+          setIsConnected(true);
+          appendLine('\x1b[33m[Notice] Live SSE backend unavailable. Switched to offline simulated build stream.\x1b[0m');
+          stopSimulationRef.current = simulateBuildStream(appendLine);
         } else {
           setIsReconnecting(false);
           setError(new Error('SSE connection failed after maximum retry attempts'));
         }
       };
     } catch (err) {
-      setIsConnected(false);
-      setError(err instanceof Error ? err : new Error('Failed to initialize EventSource'));
+      if (enableSimulationFallback) {
+        setIsConnected(true);
+        stopSimulationRef.current = simulateBuildStream(appendLine);
+      } else {
+        setIsConnected(false);
+        setError(err instanceof Error ? err : new Error('Failed to initialize EventSource'));
+      }
     }
-  }, [enabled, url, appendLine]);
+  }, [enabled, url, enableSimulationFallback, appendLine]);
 
   useEffect(() => {
     connect();
@@ -125,6 +152,10 @@ export function useSseStream({
       }
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (stopSimulationRef.current) {
+        stopSimulationRef.current();
+        stopSimulationRef.current = null;
       }
       setIsConnected(false);
       setIsReconnecting(false);

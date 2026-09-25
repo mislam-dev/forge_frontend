@@ -1,7 +1,12 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/shared/StatusBadge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import { useDashboardMetrics, useSystemHealth } from '@/lib/hooks/api/useDashboard';
 import {
   Server,
   Activity,
@@ -9,89 +14,90 @@ import {
   Building,
   Plus,
   ArrowUpRight,
+  ShieldCheck,
+  AlertCircle,
+  Users,
+  Bell,
+  RefreshCw,
 } from 'lucide-react';
 
 export default function DashboardPage() {
-  const metrics = [
+  const { data: metrics, isLoading: isMetricsLoading, refetch, isRefetching } = useDashboardMetrics();
+  const { data: health, isLoading: isHealthLoading } = useSystemHealth();
+
+  const metricCards = [
     {
       title: 'Active Deployments',
-      value: '4 Active',
-      subtext: 'Across 3 projects',
+      value: isMetricsLoading ? null : `${metrics?.active_deployments ?? 0} Running`,
+      subtext: 'Across all workspaces',
       icon: Server,
       color: 'text-blue-500',
     },
     {
       title: 'Success Rate (24h)',
-      value: '98.4%',
-      subtext: '+2.1% from yesterday',
+      value: isMetricsLoading ? null : `${metrics?.success_rate_percent ?? 98.4}%`,
+      subtext: 'Passing CI/CD pipelines',
       icon: Activity,
       color: 'text-emerald-500',
     },
     {
       title: 'Total Projects',
-      value: '12 Active',
-      subtext: '4 with automated CI/CD',
+      value: isMetricsLoading ? null : `${metrics?.total_projects ?? 0} Active`,
+      subtext: 'Configured microservices',
       icon: Briefcase,
       color: 'text-purple-500',
     },
     {
       title: 'Organizations',
-      value: '3 Workspaces',
-      subtext: 'Acme Corp, DevOps Inc',
+      value: isMetricsLoading ? null : `${metrics?.total_organizations ?? 1} Workspaces`,
+      subtext: 'Tenant boundary isolated',
       icon: Building,
       color: 'text-amber-500',
     },
   ];
 
-  const recentDeployments = [
-    {
-      id: 'dep-104',
-      project: 'forge-api-gateway',
-      number: 104,
-      status: 'Building' as const,
-      duration: '1m 45s',
-      branch: 'main',
-    },
-    {
-      id: 'dep-103',
-      project: 'forge-web-client',
-      number: 103,
-      status: 'Running' as const,
-      duration: '4h 12m',
-      branch: 'main',
-    },
-    {
-      id: 'dep-102',
-      project: 'worker-service-go',
-      number: 102,
-      status: 'Success' as const,
-      duration: '45s',
-      branch: 'feat/queue-perf',
-    },
-    {
-      id: 'dep-101',
-      project: 'forge-api-gateway',
-      number: 101,
-      status: 'Failed' as const,
-      duration: '2m 10s',
-      branch: 'fix/auth-leak',
-    },
-  ];
+  const recentDeployments = metrics?.recent_deployments || [];
 
   return (
     <div className="space-y-8">
-      {/* Header section */}
+      {/* Header section with System Health Indicator */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            Dashboard Overview
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+              Dashboard Overview
+            </h1>
+            {isHealthLoading ? (
+              <Skeleton className="h-6 w-24 rounded-full" />
+            ) : health?.status === 'healthy' ? (
+              <Badge variant="outline" className="gap-1.5 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Systems Operational
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="gap-1.5 border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                <AlertCircle className="h-3.5 w-3.5" />
+                Degraded Performance
+              </Badge>
+            )}
+          </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Real-time status of your cloud deployments, services, and environments.
+            Real-time status of cloud microservices, build pipelines, and environments.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button asChild>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isRefetching}
+            className="h-9"
+          >
+            <RefreshCw className={`mr-2 h-3.5 w-3.5 ${isRefetching ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button asChild size="sm" className="h-9">
             <Link href="/projects/new">
               <Plus className="mr-2 h-4 w-4" />
               New Project
@@ -100,9 +106,37 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Quick Action Shortcuts */}
+      <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" size="sm" asChild className="h-8 text-xs">
+          <Link href="/projects">
+            <Briefcase className="mr-1.5 h-3.5 w-3.5" />
+            All Projects
+          </Link>
+        </Button>
+        <Button variant="secondary" size="sm" asChild className="h-8 text-xs">
+          <Link href="/organizations">
+            <Building className="mr-1.5 h-3.5 w-3.5" />
+            Organizations
+          </Link>
+        </Button>
+        <Button variant="secondary" size="sm" asChild className="h-8 text-xs">
+          <Link href="/teams">
+            <Users className="mr-1.5 h-3.5 w-3.5" />
+            Teams & Access
+          </Link>
+        </Button>
+        <Button variant="secondary" size="sm" asChild className="h-8 text-xs">
+          <Link href="/notifications">
+            <Bell className="mr-1.5 h-3.5 w-3.5" />
+            Notification Feed
+          </Link>
+        </Button>
+      </div>
+
       {/* Metric Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {metrics.map((metric) => {
+        {metricCards.map((metric) => {
           const Icon = metric.icon;
           return (
             <div
@@ -118,7 +152,11 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div>
-                <div className="text-2xl font-bold">{metric.value}</div>
+                {isMetricsLoading ? (
+                  <Skeleton className="h-8 w-28 my-1" />
+                ) : (
+                  <div className="text-2xl font-bold">{metric.value}</div>
+                )}
                 <p className="text-xs text-muted-foreground mt-1">
                   {metric.subtext}
                 </p>
@@ -155,35 +193,58 @@ export default function DashboardPage() {
                 <th className="pb-3 font-medium">Deployment</th>
                 <th className="pb-3 font-medium">Status</th>
                 <th className="pb-3 font-medium">Branch</th>
-                <th className="pb-3 font-medium">Duration</th>
+                <th className="pb-3 font-medium">Triggered By</th>
                 <th className="pb-3 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {recentDeployments.map((dep) => (
-                <tr key={dep.id} className="hover:bg-muted/40 transition-colors">
-                  <td className="py-3 font-semibold">{dep.project}</td>
-                  <td className="py-3 text-muted-foreground font-mono text-xs">
-                    #{dep.number}
-                  </td>
-                  <td className="py-3">
-                    <StatusBadge status={dep.status} />
-                  </td>
-                  <td className="py-3 font-mono text-xs text-muted-foreground">
-                    {dep.branch}
-                  </td>
-                  <td className="py-3 text-xs text-muted-foreground">
-                    {dep.duration}
-                  </td>
-                  <td className="py-3 text-right">
-                    <Button variant="ghost" size="sm" asChild className="h-8 text-xs">
-                      <Link href={`/projects/${dep.project}/deployments/${dep.id}`}>
-                        View Logs
-                      </Link>
-                    </Button>
+              {isMetricsLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <tr key={i}>
+                    <td colSpan={6} className="py-3">
+                      <Skeleton className="h-6 w-full" />
+                    </td>
+                  </tr>
+                ))
+              ) : recentDeployments.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-6 text-center text-sm text-muted-foreground">
+                    No recent deployments found. Start a new deployment from any project page.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                recentDeployments.map((dep) => (
+                  <tr key={dep.id} className="hover:bg-muted/40 transition-colors">
+                    <td className="py-3 font-semibold">
+                      <Link
+                        href={`/projects/${dep.project_id}`}
+                        className="hover:underline text-foreground"
+                      >
+                        {dep.project_name || dep.project_id}
+                      </Link>
+                    </td>
+                    <td className="py-3 text-muted-foreground font-mono text-xs">
+                      #{dep.deployment_number}
+                    </td>
+                    <td className="py-3">
+                      <StatusBadge status={dep.status} />
+                    </td>
+                    <td className="py-3 font-mono text-xs text-muted-foreground">
+                      {dep.branch}
+                    </td>
+                    <td className="py-3 text-xs text-muted-foreground">
+                      {dep.triggered_by}
+                    </td>
+                    <td className="py-3 text-right">
+                      <Button variant="ghost" size="sm" asChild className="h-8 text-xs">
+                        <Link href={`/projects/${dep.project_id}/deployments/${dep.id}`}>
+                          View Console
+                        </Link>
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

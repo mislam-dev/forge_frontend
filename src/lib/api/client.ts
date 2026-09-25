@@ -1,5 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { v4 as uuidv4 } from 'uuid';
+import { resolveMockRequest } from './mock/adapter';
 
 export const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
@@ -23,7 +24,7 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
-// Response Interceptor: Auto Token Refresh on 401 Unauthorized
+// Response Interceptor: Auto Token Refresh & Graceful Mock Fallback
 let isRefreshing = false;
 let failedQueue: Array<{
   resolve: (token: string) => void;
@@ -44,9 +45,36 @@ const processQueue = (error: unknown, token: string | null = null) => {
 apiClient.interceptors.response.use(
   (response) => response.data,
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & {
+    const originalRequest = error.config as (InternalAxiosRequestConfig & {
       _retry?: boolean;
-    };
+    }) | undefined;
+
+    // Graceful offline mock fallback if backend is offline or mocks explicitly enabled
+    const isMockEnabled = process.env.NEXT_PUBLIC_ENABLE_MOCKS === 'true';
+    const isNetworkError = !error.response || error.code === 'ERR_NETWORK' || error.message.includes('Network Error');
+
+    if ((isMockEnabled || isNetworkError) && originalRequest) {
+      let parsedData: unknown = undefined;
+      try {
+        if (typeof originalRequest.data === 'string') {
+          parsedData = JSON.parse(originalRequest.data);
+        } else {
+          parsedData = originalRequest.data;
+        }
+      } catch {
+        parsedData = originalRequest.data;
+      }
+
+      const mockRes = resolveMockRequest(
+        originalRequest.method || 'GET',
+        originalRequest.url || '',
+        parsedData
+      );
+
+      if (mockRes) {
+        return mockRes;
+      }
+    }
 
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       if (typeof window === 'undefined') {

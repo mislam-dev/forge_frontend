@@ -1,0 +1,202 @@
+'use client';
+
+import React, { useState } from 'react';
+import { useParams } from 'next/navigation';
+import { OrgHeader } from '@/components/organizations/OrgHeader';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { useToast } from '@/components/ui/use-toast';
+import { useOrgMembers, useInviteOrgMember } from '@/lib/hooks/api/useOrganizations';
+import { Users, UserPlus, Mail, Shield } from 'lucide-react';
+
+export default function OrgMembersPage() {
+  const params = useParams();
+  const { toast } = useToast();
+  const orgId = (params?.id as string) || '';
+
+  const { data: members = [], isLoading } = useOrgMembers(orgId);
+  const inviteMember = useInviteOrgMember(orgId);
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<'Admin' | 'Member' | 'Viewer'>('Member');
+
+  const handleInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) {
+      toast({
+        title: 'Validation Error',
+        description: 'Email address is required.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      await inviteMember.mutateAsync({
+        email: email.trim(),
+        role,
+      });
+
+      toast({
+        title: 'Invitation Sent',
+        description: `Invited ${email} with role "${role}".`,
+      });
+      setEmail('');
+      setDialogOpen(false);
+    } catch (err: any) {
+      toast({
+        title: 'Invitation Failed',
+        description: err?.message || 'Could not send invitation.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <OrgHeader orgId={orgId} />
+
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 className="font-semibold text-lg flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              Organization Members
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Manage user access, role permissions, and pending workspace invitations.
+            </p>
+          </div>
+
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="h-9 text-xs">
+                <UserPlus className="mr-1.5 h-3.5 w-3.5" />
+                Invite Member
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Invite Teammate to Organization</DialogTitle>
+                <DialogDescription>
+                  Send an email invitation link with customized workspace permissions.
+                </DialogDescription>
+              </DialogHeader>
+
+              <form onSubmit={handleInvite} className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label htmlFor="invite-email">Teammate Email Address *</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="invite-email"
+                      type="email"
+                      placeholder="colleague@company.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="pl-9 text-sm"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="invite-role">Organization Role</Label>
+                  <select
+                    id="invite-role"
+                    value={role}
+                    onChange={(e) => setRole(e.target.value as any)}
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="Admin">Admin (Manage members, all projects, billing)</option>
+                    <option value="Member">Member (Create and deploy projects)</option>
+                    <option value="Viewer">Viewer (Read-only access across projects)</option>
+                  </select>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" size="sm" disabled={inviteMember.isPending}>
+                    {inviteMember.isPending ? 'Sending...' : 'Send Invitation'}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {/* Members Table */}
+        <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+          {isLoading ? (
+            <div className="p-6 space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/30 text-xs text-muted-foreground font-medium">
+                    <th className="py-3 px-4 font-medium">User</th>
+                    <th className="py-3 px-4 font-medium">Email</th>
+                    <th className="py-3 px-4 font-medium">Role</th>
+                    <th className="py-3 px-4 font-medium">Joined</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {members.map((member) => (
+                    <tr key={member.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="py-3.5 px-4 font-medium text-xs">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
+                            {member.name.slice(0, 2).toUpperCase()}
+                          </div>
+                          <span>{member.name}</span>
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-4 font-mono text-xs text-muted-foreground">
+                        {member.email}
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <Badge
+                          variant={
+                            member.role === 'Owner' || member.role === 'Admin'
+                              ? 'default'
+                              : 'secondary'
+                          }
+                          className="text-xs capitalize"
+                        >
+                          {member.role}
+                        </Badge>
+                      </td>
+
+                      <td className="py-3.5 px-4 text-xs text-muted-foreground">
+                        {member.joined_at ? new Date(member.joined_at).toLocaleDateString() : 'Active'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
