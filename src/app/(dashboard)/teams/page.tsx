@@ -17,6 +17,7 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { useTeamsList, useCreateTeam, useDeleteTeam } from '@/lib/hooks/api/useTeams';
 import { useWorkspaceStore } from '@/lib/store/useWorkspaceStore';
+import { TeamMembersDialog } from '@/components/teams/TeamMembersDialog';
 import { Users, Plus, Trash2, Search, Layers, UserCheck } from 'lucide-react';
 
 export default function GlobalTeamsPage() {
@@ -30,6 +31,7 @@ export default function GlobalTeamsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [managingTeam, setManagingTeam] = useState<{ id: string; name: string } | null>(null);
 
   const filteredTeams = teams.filter((t) =>
     t.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -203,15 +205,28 @@ export default function GlobalTeamsPage() {
                     </div>
                   </div>
 
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(team.id, team.name)}
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                    title="Delete team"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setManagingTeam({ id: team.id, name: team.name })}
+                      className="h-8 px-2.5 text-xs font-normal"
+                      title="Manage members"
+                    >
+                      <UserCheck className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                      Members
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(team.id, team.name)}
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      title="Delete team"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed min-h-[2.5rem]">
@@ -226,6 +241,17 @@ export default function GlobalTeamsPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {managingTeam && (
+        <TeamMembersDialog
+          teamId={managingTeam.id}
+          teamName={managingTeam.name}
+          isOpen={Boolean(managingTeam)}
+          onOpenChange={(open) => {
+            if (!open) setManagingTeam(null);
+          }}
+        />
       )}
     </div>
   );

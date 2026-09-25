@@ -139,6 +139,13 @@ export interface TeamMemberDTO {
   joined_at: string;
 }
 
+export interface AddTeamMemberRequest {
+  user_id?: string;
+  name?: string;
+  email: string;
+  role: 'Lead' | 'Maintainer' | 'Member' | 'Viewer' | string;
+}
+
 // Project & Repository DTOs
 export type ProjectRuntime = 'rust' | 'node' | 'python' | 'go' | 'docker' | string;
 export type ProjectType = 'repo' | 'monorepo' | 'dockerfile' | string;

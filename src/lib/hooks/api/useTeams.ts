@@ -4,13 +4,18 @@ import {
   ApiResponse,
   TeamDTO,
   CreateTeamRequest,
+  TeamMemberDTO,
+  AddTeamMemberRequest,
 } from '@/lib/api/types';
+
+import { organizationsKeys } from '@/lib/hooks/api/useOrganizations';
 
 export const teamsKeys = {
   all: ['teams'] as const,
   lists: () => [...teamsKeys.all, 'list'] as const,
   list: (orgId?: string) => [...teamsKeys.lists(), { orgId }] as const,
   detail: (id: string) => [...teamsKeys.all, 'detail', id] as const,
+  members: (teamId: string) => [...teamsKeys.all, teamId, 'members'] as const,
 };
 
 export function useTeamsList(orgId?: string) {
@@ -36,6 +41,7 @@ export function useCreateTeam() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: teamsKeys.all });
+      queryClient.invalidateQueries({ queryKey: organizationsKeys.all });
     },
   });
 }
@@ -49,6 +55,52 @@ export function useDeleteTeam() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: teamsKeys.all });
+      queryClient.invalidateQueries({ queryKey: organizationsKeys.all });
+    },
+  });
+}
+
+export function useTeamMembers(teamId: string) {
+  return useQuery<TeamMemberDTO[]>({
+    queryKey: teamsKeys.members(teamId),
+    queryFn: async () => {
+      const res = (await apiClient.get(`/api/v1/teams/${teamId}/members`)) as unknown as ApiResponse<TeamMemberDTO[]>;
+      return res.data || [];
+    },
+    enabled: Boolean(teamId),
+  });
+}
+
+export function useAddTeamMember(teamId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<TeamMemberDTO, Error, AddTeamMemberRequest>({
+    mutationFn: async (payload) => {
+      const res = (await apiClient.post(
+        `/api/v1/teams/${teamId}/members`,
+        payload
+      )) as unknown as ApiResponse<TeamMemberDTO>;
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: teamsKeys.members(teamId) });
+      queryClient.invalidateQueries({ queryKey: teamsKeys.all });
+      queryClient.invalidateQueries({ queryKey: organizationsKeys.all });
+    },
+  });
+}
+
+export function useRemoveTeamMember(teamId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, string>({
+    mutationFn: async (memberId) => {
+      await apiClient.delete(`/api/v1/teams/${teamId}/members/${memberId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: teamsKeys.members(teamId) });
+      queryClient.invalidateQueries({ queryKey: teamsKeys.all });
+      queryClient.invalidateQueries({ queryKey: organizationsKeys.all });
     },
   });
 }

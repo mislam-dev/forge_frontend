@@ -19,7 +19,8 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { useOrgTeams } from '@/lib/hooks/api/useOrganizations';
 import { useCreateTeam } from '@/lib/hooks/api/useTeams';
-import { Layers, Plus, Users } from 'lucide-react';
+import { TeamMembersDialog } from '@/components/teams/TeamMembersDialog';
+import { Layers, Plus, Users, UserCheck } from 'lucide-react';
 
 export default function OrgTeamsPage() {
   const params = useParams();
@@ -32,6 +33,7 @@ export default function OrgTeamsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [teamName, setTeamName] = useState('');
   const [teamDesc, setTeamDesc] = useState('');
+  const [managingTeam, setManagingTeam] = useState<{ id: string; name: string } | null>(null);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,12 +160,24 @@ export default function OrgTeamsPage() {
                 className="flex flex-col justify-between rounded-xl border border-border bg-card p-5 shadow-sm space-y-3"
               >
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-base">{team.name}</h3>
-                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Users className="h-3 w-3" />
-                      {team.member_count ?? 1} members
-                    </span>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="font-semibold text-base">{team.name}</h3>
+                      <span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                        <Users className="h-3 w-3" />
+                        {team.member_count ?? 1} members
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setManagingTeam({ id: team.id, name: team.name })}
+                      className="h-8 px-2.5 text-xs font-normal shrink-0"
+                      title="Manage members"
+                    >
+                      <UserCheck className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                      Members
+                    </Button>
                   </div>
                   <p className="text-xs text-muted-foreground line-clamp-2">
                     {team.description || 'No description provided.'}
@@ -178,6 +192,17 @@ export default function OrgTeamsPage() {
           </div>
         )}
       </div>
+
+      {managingTeam && (
+        <TeamMembersDialog
+          teamId={managingTeam.id}
+          teamName={managingTeam.name}
+          isOpen={Boolean(managingTeam)}
+          onOpenChange={(open) => {
+            if (!open) setManagingTeam(null);
+          }}
+        />
+      )}
     </div>
   );
 }

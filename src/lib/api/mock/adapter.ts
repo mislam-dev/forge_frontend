@@ -10,6 +10,7 @@ import {
   mockProjects,
   mockSystemHealth,
   mockTeams,
+  mockTeamMembers,
   mockUserProfile,
   mockUserSessions,
 } from './seeds';
@@ -23,6 +24,7 @@ import {
   ProjectDTO,
   ProjectRepositoryDTO,
   TeamDTO,
+  TeamMemberDTO,
   UserProfileDTO,
 } from '../types';
 
@@ -34,6 +36,7 @@ const deploymentsStore: Record<string, DeploymentDTO[]> = { ...mockDeployments }
 let organizationsStore = [...mockOrganizations];
 const orgMembersStore: Record<string, OrgMemberDTO[]> = { ...mockOrgMembers };
 let teamsStore = [...mockTeams];
+const teamMembersStore: Record<string, TeamMemberDTO[]> = { ...mockTeamMembers };
 let notificationsStore = [...mockNotifications];
 let profileStore = { ...mockUserProfile };
 let sessionsStore = [...mockUserSessions];
@@ -340,6 +343,49 @@ export function resolveMockRequest(
     const teamId = teamDeleteMatch[1];
     teamsStore = teamsStore.filter((t) => t.id !== teamId);
     return wrapSuccess(null, 'Team removed');
+  }
+
+  const teamMembersMatch = cleanUrl.match(/^\/api\/v1\/teams\/([^/]+)\/members$/);
+  if (teamMembersMatch) {
+    const teamId = teamMembersMatch[1];
+    if (normalizedMethod === 'GET') {
+      return wrapSuccess(teamMembersStore[teamId] || []);
+    }
+    if (normalizedMethod === 'POST') {
+      const payload = (data || {}) as any;
+      const newMember: TeamMemberDTO = {
+        id: `tmem-${Date.now()}`,
+        team_id: teamId,
+        user_id: payload.user_id || `user-${Date.now()}`,
+        name: payload.name || (payload.email ? payload.email.split('@')[0] : 'Member'),
+        email: payload.email || 'member@forge.dev',
+        role: payload.role || 'Member',
+        joined_at: new Date().toISOString(),
+      };
+      if (!teamMembersStore[teamId]) teamMembersStore[teamId] = [];
+      teamMembersStore[teamId].push(newMember);
+
+      teamsStore = teamsStore.map((t) =>
+        t.id === teamId ? { ...t, member_count: teamMembersStore[teamId].length } : t
+      );
+
+      return wrapSuccess(newMember, 'Member added to team');
+    }
+  }
+
+  const teamMemberDeleteMatch = cleanUrl.match(/^\/api\/v1\/teams\/([^/]+)\/members\/([^/]+)$/);
+  if (teamMemberDeleteMatch && normalizedMethod === 'DELETE') {
+    const teamId = teamMemberDeleteMatch[1];
+    const memberId = teamMemberDeleteMatch[2];
+    if (teamMembersStore[teamId]) {
+      teamMembersStore[teamId] = teamMembersStore[teamId].filter(
+        (m) => m.id !== memberId && m.user_id !== memberId
+      );
+      teamsStore = teamsStore.map((t) =>
+        t.id === teamId ? { ...t, member_count: teamMembersStore[teamId].length } : t
+      );
+    }
+    return wrapSuccess(null, 'Member removed from team');
   }
 
   // Notifications

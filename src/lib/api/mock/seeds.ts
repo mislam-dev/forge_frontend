@@ -10,6 +10,7 @@ import {
   ProjectDTO,
   ProjectRepositoryDTO,
   TeamDTO,
+  TeamMemberDTO,
   UserProfileDTO,
   UserSessionDTO,
 } from '../types';
@@ -82,7 +83,7 @@ export const mockTeams: TeamDTO[] = [
     name: 'Core Platform',
     description: 'Backend Rust services, distributed cache, and storage engines.',
     org_id: 'org-1',
-    member_count: 5,
+    member_count: 3,
     created_at: '2026-01-20T10:00:00Z',
   },
   {
@@ -90,7 +91,7 @@ export const mockTeams: TeamDTO[] = [
     name: 'Frontend Guild',
     description: 'Next.js applications, design systems, and client SDKs.',
     org_id: 'org-1',
-    member_count: 4,
+    member_count: 2,
     created_at: '2026-02-05T14:00:00Z',
   },
   {
@@ -98,10 +99,73 @@ export const mockTeams: TeamDTO[] = [
     name: 'SRE & Infra',
     description: 'Kubernetes operators, observability, and cloud networking.',
     org_id: 'org-1',
-    member_count: 3,
+    member_count: 1,
     created_at: '2026-02-15T08:30:00Z',
   },
 ];
+
+export const mockTeamMembers: Record<string, TeamMemberDTO[]> = {
+  'team-1': [
+    {
+      id: 'tmem-1',
+      team_id: 'team-1',
+      user_id: 'user-1',
+      name: 'Monirul Islam',
+      email: 'admin@forge.dev',
+      role: 'Lead',
+      joined_at: '2026-01-20T10:00:00Z',
+    },
+    {
+      id: 'tmem-2',
+      team_id: 'team-1',
+      user_id: 'user-2',
+      name: 'Sarah Connor',
+      email: 'sarah@forge.dev',
+      role: 'Maintainer',
+      joined_at: '2026-02-10T11:00:00Z',
+    },
+    {
+      id: 'tmem-3',
+      team_id: 'team-1',
+      user_id: 'user-3',
+      name: 'Alex Rivera',
+      email: 'alex@forge.dev',
+      role: 'Member',
+      joined_at: '2026-03-01T14:20:00Z',
+    },
+  ],
+  'team-2': [
+    {
+      id: 'tmem-4',
+      team_id: 'team-2',
+      user_id: 'user-1',
+      name: 'Monirul Islam',
+      email: 'admin@forge.dev',
+      role: 'Maintainer',
+      joined_at: '2026-02-05T14:00:00Z',
+    },
+    {
+      id: 'tmem-5',
+      team_id: 'team-2',
+      user_id: 'user-3',
+      name: 'Alex Rivera',
+      email: 'alex@forge.dev',
+      role: 'Lead',
+      joined_at: '2026-02-06T10:00:00Z',
+    },
+  ],
+  'team-3': [
+    {
+      id: 'tmem-6',
+      team_id: 'team-3',
+      user_id: 'user-2',
+      name: 'Sarah Connor',
+      email: 'sarah@forge.dev',
+      role: 'Lead',
+      joined_at: '2026-02-15T08:30:00Z',
+    },
+  ],
+};
 
 export const mockProjects: ProjectDTO[] = [
   {
