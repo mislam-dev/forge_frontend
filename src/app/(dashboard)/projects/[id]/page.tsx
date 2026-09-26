@@ -1,12 +1,13 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ProjectHeader } from '@/components/projects/ProjectHeader';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useProjectDetail, useDeleteProject } from '@/lib/hooks/api/useProjects';
 import { useDeploymentsList } from '@/lib/hooks/api/useDeployments';
 import { useToast } from '@/components/ui/use-toast';
@@ -32,19 +33,18 @@ export default function ProjectOverviewPage() {
   const { data: deployments = [], isLoading: isDeploymentsLoading } = useDeploymentsList(projectId);
   const deleteProject = useDeleteProject();
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   const latestDeployment = deployments[0];
 
-  const handleDelete = async () => {
-    if (!confirm(`Are you sure you want to delete project "${project?.name}"? This action cannot be undone.`)) {
-      return;
-    }
-
+  const handleConfirmDelete = async () => {
     try {
       await deleteProject.mutateAsync(projectId);
       toast({
         title: 'Project Deleted',
         description: `Project "${project?.name}" was deleted.`,
       });
+      setShowDeleteConfirm(false);
       router.push('/projects');
     } catch (err: any) {
       toast({
@@ -172,7 +172,7 @@ export default function ProjectOverviewPage() {
           <Button
             variant="destructive"
             size="sm"
-            onClick={handleDelete}
+            onClick={() => setShowDeleteConfirm(true)}
             disabled={deleteProject.isPending}
             className="shrink-0"
           >
@@ -181,6 +181,17 @@ export default function ProjectOverviewPage() {
           </Button>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Delete Project"
+        description={`Are you sure you want to delete project "${project?.name || ''}"? This action cannot be undone and will permanently remove all deployments and environment secrets.`}
+        confirmText="Delete Project"
+        variant="destructive"
+        isLoading={deleteProject.isPending}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }

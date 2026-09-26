@@ -7,6 +7,7 @@ import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { useDashboardMetrics, useSystemHealth } from '@/lib/hooks/api/useDashboard';
+import { useWorkspaceStore } from '@/lib/store/useWorkspaceStore';
 import {
   Server,
   Activity,
@@ -22,6 +23,7 @@ import {
 } from 'lucide-react';
 
 export default function DashboardPage() {
+  const { activeOrgId } = useWorkspaceStore();
   const { data: metrics, isLoading: isMetricsLoading, refetch, isRefetching } = useDashboardMetrics();
   const { data: health, isLoading: isHealthLoading } = useSystemHealth();
 
@@ -46,13 +48,6 @@ export default function DashboardPage() {
       subtext: 'Configured microservices',
       icon: Briefcase,
       color: 'text-purple-500',
-    },
-    {
-      title: 'Organizations',
-      value: isMetricsLoading ? null : `${metrics?.total_organizations ?? 1} Workspaces`,
-      subtext: 'Tenant boundary isolated',
-      icon: Building,
-      color: 'text-amber-500',
     },
   ];
 
@@ -115,9 +110,9 @@ export default function DashboardPage() {
           </Link>
         </Button>
         <Button variant="secondary" size="sm" asChild className="h-8 text-xs">
-          <Link href="/organizations">
+          <Link href={`/organizations/${activeOrgId || 'org-1'}`}>
             <Building className="mr-1.5 h-3.5 w-3.5" />
-            Organizations
+            Manage Organization
           </Link>
         </Button>
         <Button variant="secondary" size="sm" asChild className="h-8 text-xs">
@@ -135,7 +130,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Metric Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {metricCards.map((metric) => {
           const Icon = metric.icon;
           return (

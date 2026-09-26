@@ -4,8 +4,10 @@ import { Topbar } from '@/components/layout/Topbar';
 
 export default function DashboardLayout({
   children,
+  modal,
 }: {
   children: React.ReactNode;
+  modal?: React.ReactNode;
 }) {
   return (
     <div className="flex min-h-screen bg-background text-foreground overflow-x-hidden">
@@ -16,6 +18,7 @@ export default function DashboardLayout({
           {children}
         </main>
       </div>
+      {modal}
     </div>
   );
 }

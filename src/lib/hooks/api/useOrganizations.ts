@@ -6,6 +6,7 @@ import {
   CreateOrgRequest,
   OrgMemberDTO,
   InviteOrgMemberRequest,
+  UpdateOrgMemberRoleRequest,
   TeamDTO,
 } from '@/lib/api/types';
 
@@ -90,3 +91,34 @@ export function useOrgTeams(orgId: string) {
     enabled: Boolean(orgId),
   });
 }
+
+export function useRemoveOrgMember(orgId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, string>({
+    mutationFn: async (memberId: string) => {
+      await apiClient.delete(`/api/v1/organizations/${orgId}/members/${memberId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: organizationsKeys.members(orgId) });
+    },
+  });
+}
+
+export function useUpdateOrgMemberRole(orgId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<OrgMemberDTO, Error, { memberId: string; role: string }>({
+    mutationFn: async ({ memberId, role }) => {
+      const res = (await apiClient.patch(
+        `/api/v1/organizations/${orgId}/members/${memberId}`,
+        { role }
+      )) as unknown as ApiResponse<OrgMemberDTO>;
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: organizationsKeys.members(orgId) });
+    },
+  });
+}
+

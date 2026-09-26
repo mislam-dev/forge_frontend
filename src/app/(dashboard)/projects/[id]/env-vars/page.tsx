@@ -29,6 +29,10 @@ import {
   AlertCircle,
   ShieldCheck,
   CheckCircle2,
+  Eye,
+  EyeOff,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 interface EditableEnvVar {
@@ -53,6 +57,20 @@ export default function ProjectEnvVarsPage() {
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [bulkInput, setBulkInput] = useState('');
   const [bulkError, setBulkError] = useState<string | null>(null);
+  const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const toggleVisibility = (id: string) => {
+    setVisibleSecrets((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleCopy = (id: string, val: string) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(val);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    }
+  };
 
   useEffect(() => {
     if (serverEnvVars) {
@@ -309,20 +327,46 @@ export default function ProjectEnvVarsPage() {
                       </td>
 
                       <td className="py-3 px-4 align-top">
-                        {row.value ? (
-                          <EncryptedValueMasker
-                            value={row.value}
-                            maskedPlaceholder={row.masked_value || '••••••••••••••••'}
-                          />
-                        ) : (
+                        <div className="relative flex items-center">
                           <Input
-                            type="password"
+                            type={visibleSecrets[row.id] ? 'text' : 'password'}
                             value={row.value}
                             onChange={(e) => updateRow(row.id, 'value', e.target.value)}
-                            placeholder="Enter secret value..."
-                            className="font-mono text-xs h-9"
+                            placeholder={row.masked_value || 'Enter secret value...'}
+                            className="font-mono text-xs h-9 pr-16"
                           />
-                        )}
+                          <div className="absolute right-1.5 flex items-center gap-0.5">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => toggleVisibility(row.id)}
+                              className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                              title={visibleSecrets[row.id] ? 'Hide secret value' : 'Show secret value'}
+                            >
+                              {visibleSecrets[row.id] ? (
+                                <EyeOff className="h-3.5 w-3.5" />
+                              ) : (
+                                <Eye className="h-3.5 w-3.5" />
+                              )}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleCopy(row.id, row.value)}
+                              disabled={!row.value}
+                              className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                              title="Copy secret value"
+                            >
+                              {copiedId === row.id ? (
+                                <Check className="h-3.5 w-3.5 text-emerald-500" />
+                              ) : (
+                                <Copy className="h-3.5 w-3.5" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
                       </td>
 
                       <td className="py-3 px-4 align-top">

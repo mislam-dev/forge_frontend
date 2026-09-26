@@ -6,6 +6,7 @@ import {
   CreateTeamRequest,
   TeamMemberDTO,
   AddTeamMemberRequest,
+  UpdateTeamMemberRoleRequest,
 } from '@/lib/api/types';
 
 import { organizationsKeys } from '@/lib/hooks/api/useOrganizations';
@@ -104,3 +105,21 @@ export function useRemoveTeamMember(teamId: string) {
     },
   });
 }
+
+export function useUpdateTeamMemberRole(teamId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<TeamMemberDTO, Error, { memberId: string; role: string }>({
+    mutationFn: async ({ memberId, role }) => {
+      const res = (await apiClient.patch(
+        `/api/v1/teams/${teamId}/members/${memberId}`,
+        { role }
+      )) as unknown as ApiResponse<TeamMemberDTO>;
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: teamsKeys.members(teamId) });
+    },
+  });
+}
+

@@ -114,6 +114,10 @@ export interface InviteOrgMemberRequest {
   role: 'Admin' | 'Member' | 'Viewer';
 }
 
+export interface UpdateOrgMemberRoleRequest {
+  role: 'Owner' | 'Admin' | 'Member' | 'Viewer' | string;
+}
+
 export interface TeamDTO {
   id: string;
   name: string;
@@ -143,6 +147,10 @@ export interface AddTeamMemberRequest {
   user_id?: string;
   name?: string;
   email: string;
+  role: 'Lead' | 'Maintainer' | 'Member' | 'Viewer' | string;
+}
+
+export interface UpdateTeamMemberRoleRequest {
   role: 'Lead' | 'Maintainer' | 'Member' | 'Viewer' | string;
 }
 
@@ -281,6 +289,7 @@ export interface NotificationDTO {
   title: string;
   message: string;
   severity: 'info' | 'warning' | 'error' | 'success';
+  category?: 'deployment' | 'security' | 'team' | 'system' | string;
   is_read: boolean;
   link_url?: string;
   created_at: string;

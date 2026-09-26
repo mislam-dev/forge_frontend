@@ -19,6 +19,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import {
   useProjectAccess,
   useAssignProjectRole,
@@ -48,6 +49,7 @@ export default function ProjectAccessPage() {
   const revokeRole = useRevokeProjectRole(projectId);
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [pendingRevoke, setPendingRevoke] = useState<{ id: string; name: string } | null>(null);
 
   const form = useForm<ProjectAccessAssignValues>({
     resolver: zodResolver(projectAccessAssignSchema),
@@ -87,15 +89,16 @@ export default function ProjectAccessPage() {
     }
   };
 
-  const handleRevoke = async (id: string, name: string) => {
-    if (!confirm(`Revoke project access for "${name}"?`)) return;
+  const handleConfirmRevoke = async () => {
+    if (!pendingRevoke) return;
 
     try {
-      await revokeRole.mutateAsync(id);
+      await revokeRole.mutateAsync(pendingRevoke.id);
       toast({
         title: 'Access Revoked',
-        description: `Removed access for ${name}.`,
+        description: `Removed access for ${pendingRevoke.name}.`,
       });
+      setPendingRevoke(null);
     } catch (err: any) {
       toast({
         title: 'Revocation Failed',
@@ -317,7 +320,7 @@ export default function ProjectAccessPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleRevoke(item.id, item.name)}
+                          onClick={() => setPendingRevoke({ id: item.id, name: item.name })}
                           className="h-8 w-8 text-muted-foreground hover:text-destructive"
                           title="Revoke access"
                         >
@@ -332,6 +335,17 @@ export default function ProjectAccessPage() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={Boolean(pendingRevoke)}
+        onOpenChange={(open) => !open && setPendingRevoke(null)}
+        title="Revoke Project Access"
+        description={`Are you sure you want to revoke project access for "${pendingRevoke?.name || ''}"? They will lose access to deployments and repository secrets.`}
+        confirmText="Revoke Access"
+        variant="destructive"
+        isLoading={revokeRole.isPending}
+        onConfirm={handleConfirmRevoke}
+      />
     </div>
   );
 }

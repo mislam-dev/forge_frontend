@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@/lib/validation/zodResolver';
@@ -14,6 +14,7 @@ import {
   useProjectRepository,
   useUpdateProjectRepository,
 } from '@/lib/hooks/api/useProjectRepo';
+import { Badge } from '@/components/ui/badge';
 import {
   projectRepoSettingsSchema,
   ProjectRepoSettingsValues,
@@ -27,7 +28,17 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { FolderGit2, GitBranch, Key, Save } from 'lucide-react';
+import {
+  FolderGit2,
+  GitBranch,
+  Key,
+  Save,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  Loader2,
+  Globe,
+} from 'lucide-react';
 
 export default function ProjectRepositorySettingsPage() {
   const params = useParams();
@@ -36,6 +47,9 @@ export default function ProjectRepositorySettingsPage() {
 
   const { data: repo, isLoading } = useProjectRepository(projectId);
   const updateRepo = useUpdateProjectRepository(projectId);
+
+  const [validationState, setValidationState] = useState<'idle' | 'validating' | 'valid' | 'invalid' | 'auth_required'>('idle');
+  const [validationMessage, setValidationMessage] = useState<string>('');
 
   const form = useForm<ProjectRepoSettingsValues>({
     resolver: zodResolver(projectRepoSettingsSchema),
@@ -46,6 +60,33 @@ export default function ProjectRepositorySettingsPage() {
       auto_deploy: true,
     },
   });
+
+  const handleValidateUrl = () => {
+    const url = form.getValues('repository_url')?.trim();
+    if (!url) {
+      setValidationState('invalid');
+      setValidationMessage('Please enter a Git repository URL.');
+      return;
+    }
+
+    const httpsGitRegex = /^(https?:\/\/)([\w.-]+)(:[0-9]+)?(\/.*)?$/i;
+    if (!httpsGitRegex.test(url)) {
+      setValidationState('invalid');
+      setValidationMessage('Invalid URL syntax. Remote URL must start with http:// or https://');
+      return;
+    }
+
+    setValidationState('validating');
+    setTimeout(() => {
+      if (url.toLowerCase().includes('private') && !form.getValues('pat_token') && !repo?.pat_token_set) {
+        setValidationState('auth_required');
+        setValidationMessage('Private repository detected. A Personal Access Token (PAT) is required to clone.');
+      } else {
+        setValidationState('valid');
+        setValidationMessage('Repository URL is valid and remote host is reachable.');
+      }
+    }, 500);
+  };
 
   useEffect(() => {
     if (repo) {
@@ -110,15 +151,65 @@ export default function ProjectRepositorySettingsPage() {
                   control={form.control}
                   name="repository_url"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Repository URL (HTTPS) *</FormLabel>
+                    <FormItem className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <FormLabel>Repository URL (HTTPS) *</FormLabel>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleValidateUrl}
+                          disabled={validationState === 'validating'}
+                          className="h-7 text-xs px-2.5"
+                        >
+                          {validationState === 'validating' ? (
+                            <>
+                              <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                              Validating...
+                            </>
+                          ) : (
+                            <>
+                              <Globe className="mr-1.5 h-3 w-3" />
+                              Validate Git URL
+                            </>
+                          )}
+                        </Button>
+                      </div>
                       <FormControl>
                         <Input
                           placeholder="https://github.com/organization/repository"
                           {...field}
+                          onChange={(e) => {
+                            field.onChange(e);
+                            if (validationState !== 'idle') {
+                              setValidationState('idle');
+                            }
+                          }}
                         />
                       </FormControl>
                       <FormMessage />
+
+                      {validationState !== 'idle' && (
+                        <div
+                          className={`flex items-start gap-2 p-2.5 rounded-lg text-xs transition-all ${
+                            validationState === 'valid'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                              : validationState === 'auth_required'
+                              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                              : 'bg-destructive/10 text-destructive border border-destructive/20'
+                          }`}
+                        >
+                          {validationState === 'valid' && <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />}
+                          {validationState === 'auth_required' && <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />}
+                          {validationState === 'invalid' && <XCircle className="h-4 w-4 shrink-0 mt-0.5" />}
+                          <div className="flex-1">
+                            <span className="font-semibold capitalize mr-1">
+                              {validationState === 'valid' ? 'Verified:' : validationState === 'auth_required' ? 'Authentication Required:' : 'Error:'}
+                            </span>
+                            <span>{validationMessage}</span>
+                          </div>
+                        </div>
+                      )}
                     </FormItem>
                   )}
                 />

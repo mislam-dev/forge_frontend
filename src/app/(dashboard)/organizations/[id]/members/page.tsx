@@ -19,7 +19,13 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { useOrgMembers, useInviteOrgMember } from '@/lib/hooks/api/useOrganizations';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import {
+  useOrgMembers,
+  useInviteOrgMember,
+  useRemoveOrgMember,
+  useUpdateOrgMemberRole,
+} from '@/lib/hooks/api/useOrganizations';
 import { inviteMemberSchema, InviteMemberValues } from '@/lib/validation/organizations';
 import {
   Form,
@@ -29,7 +35,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Users, UserPlus, Mail } from 'lucide-react';
+import { Users, UserPlus, Mail, Trash2 } from 'lucide-react';
 
 export default function OrgMembersPage() {
   const params = useParams();
@@ -38,8 +44,27 @@ export default function OrgMembersPage() {
 
   const { data: members = [], isLoading } = useOrgMembers(orgId);
   const inviteMember = useInviteOrgMember(orgId);
+  const removeMember = useRemoveOrgMember(orgId);
+  const updateRole = useUpdateOrgMemberRole(orgId);
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [pendingRemoveMember, setPendingRemoveMember] = useState<{ id: string; name: string } | null>(null);
+
+  const handleRoleChange = async (memberId: string, memberName: string, newRole: string) => {
+    try {
+      await updateRole.mutateAsync({ memberId, role: newRole });
+      toast({
+        title: 'Role Updated',
+        description: `Updated ${memberName}'s role to ${newRole}.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Role Update Failed',
+        description: err?.message || 'Could not update role.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const form = useForm<InviteMemberValues>({
     resolver: zodResolver(inviteMemberSchema),
@@ -69,6 +94,24 @@ export default function OrgMembersPage() {
       toast({
         title: 'Invitation Failed',
         description: err?.message || 'Could not send invitation.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleConfirmRemoveMember = async () => {
+    if (!pendingRemoveMember) return;
+    try {
+      await removeMember.mutateAsync(pendingRemoveMember.id);
+      toast({
+        title: 'Member Removed',
+        description: `${pendingRemoveMember.name} was removed from the organization.`,
+      });
+      setPendingRemoveMember(null);
+    } catch (err: any) {
+      toast({
+        title: 'Failed to Remove Member',
+        description: err?.message || 'Could not remove member.',
         variant: 'destructive',
       });
     }
@@ -194,6 +237,7 @@ export default function OrgMembersPage() {
                     <th className="py-3 px-4 font-medium">Email</th>
                     <th className="py-3 px-4 font-medium">Role</th>
                     <th className="py-3 px-4 font-medium">Joined</th>
+                    <th className="py-3 px-4 font-medium text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -213,20 +257,34 @@ export default function OrgMembersPage() {
                       </td>
 
                       <td className="py-3.5 px-4">
-                        <Badge
-                          variant={
-                            member.role === 'Owner' || member.role === 'Admin'
-                              ? 'default'
-                              : 'secondary'
-                          }
-                          className="text-xs capitalize"
+                        <select
+                          value={member.role}
+                          onChange={(e) => handleRoleChange(member.id, member.name, e.target.value)}
+                          disabled={updateRole.isPending}
+                          className="h-7 rounded border border-input bg-background px-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary capitalize"
+                          aria-label={`Change ${member.name}'s role`}
                         >
-                          {member.role}
-                        </Badge>
+                          <option value="Owner">Owner</option>
+                          <option value="Admin">Admin</option>
+                          <option value="Member">Member</option>
+                          <option value="Viewer">Viewer</option>
+                        </select>
                       </td>
 
                       <td className="py-3.5 px-4 text-xs text-muted-foreground">
                         {member.joined_at ? new Date(member.joined_at).toLocaleDateString() : 'Active'}
+                      </td>
+
+                      <td className="py-3.5 px-4 text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setPendingRemoveMember({ id: member.id, name: member.name })}
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          title="Remove member"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -236,6 +294,17 @@ export default function OrgMembersPage() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={Boolean(pendingRemoveMember)}
+        onOpenChange={(open) => !open && setPendingRemoveMember(null)}
+        title="Remove Member from Organization"
+        description={`Are you sure you want to remove ${pendingRemoveMember?.name || ''} from this organization? They will immediately lose access to all workspace repositories and secrets.`}
+        confirmText="Remove Member"
+        variant="destructive"
+        isLoading={removeMember.isPending}
+        onConfirm={handleConfirmRemoveMember}
+      />
     </div>
   );
 }

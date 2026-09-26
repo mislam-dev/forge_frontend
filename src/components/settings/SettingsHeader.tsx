@@ -3,13 +3,14 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { User, ShieldCheck } from 'lucide-react';
+import { LayoutGrid, User, ShieldCheck } from 'lucide-react';
 
 export function SettingsHeader() {
   const pathname = usePathname();
 
   const navLinks = [
-    { label: 'Profile Information', href: '/settings', exact: true, icon: User },
+    { label: 'Overview', href: '/settings', exact: true, icon: LayoutGrid },
+    { label: 'Profile Information', href: '/settings/profile', exact: true, icon: User },
     { label: 'Security & Sessions', href: '/settings/security', icon: ShieldCheck },
   ];
 

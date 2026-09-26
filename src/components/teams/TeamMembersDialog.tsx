@@ -16,10 +16,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import {
   useTeamMembers,
   useAddTeamMember,
   useRemoveTeamMember,
+  useUpdateTeamMemberRole,
 } from '@/lib/hooks/api/useTeams';
 import { addTeamMemberSchema, AddTeamMemberValues } from '@/lib/validation/teams';
 import {
@@ -59,9 +61,27 @@ export function TeamMembersDialog({
   const { data: members = [], isLoading } = useTeamMembers(teamId);
   const addMemberMutation = useAddTeamMember(teamId);
   const removeMemberMutation = useRemoveTeamMember(teamId);
+  const updateRoleMutation = useUpdateTeamMemberRole(teamId);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [deletingMemberId, setDeletingMemberId] = useState<string | null>(null);
+  const [pendingRemoveMember, setPendingRemoveMember] = useState<{ id: string; name: string } | null>(null);
+
+  const handleRoleChange = async (memberId: string, memberName: string, newRole: string) => {
+    try {
+      await updateRoleMutation.mutateAsync({ memberId, role: newRole });
+      toast({
+        title: 'Role Updated',
+        description: `Updated ${memberName}'s role to ${newRole}.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Update Failed',
+        description: err?.message || 'Could not update role.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const form = useForm<AddTeamMemberValues>({
     resolver: zodResolver(addTeamMemberSchema),
@@ -99,18 +119,17 @@ export function TeamMembersDialog({
     }
   };
 
-  const handleRemoveMember = async (memberId: string, memberName: string) => {
-    if (!confirm(`Are you sure you want to remove ${memberName} from ${teamName}?`)) {
-      return;
-    }
+  const handleConfirmRemoveMember = async () => {
+    if (!pendingRemoveMember) return;
 
-    setDeletingMemberId(memberId);
+    setDeletingMemberId(pendingRemoveMember.id);
     try {
-      await removeMemberMutation.mutateAsync(memberId);
+      await removeMemberMutation.mutateAsync(pendingRemoveMember.id);
       toast({
         title: 'Member Removed',
-        description: `${memberName} was removed from ${teamName}.`,
+        description: `${pendingRemoveMember.name} was removed from ${teamName}.`,
       });
+      setPendingRemoveMember(null);
     } catch (err: any) {
       toast({
         title: 'Failed to Remove Member',
@@ -123,17 +142,18 @@ export function TeamMembersDialog({
   };
 
   return (
-    <Dialog
-      open={isOpen}
-      onOpenChange={(open) => {
-        onOpenChange(open);
-        if (!open) {
-          setShowAddForm(false);
-          form.reset();
-        }
-      }}
-    >
-      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+    <>
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          onOpenChange(open);
+          if (!open) {
+            setShowAddForm(false);
+            form.reset();
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
         <DialogHeader>
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -307,20 +327,26 @@ export function TeamMembersDialog({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0 ml-3">
-                  <Badge
-                    variant={roleBadgeVariants[member.role] || 'outline'}
-                    className="text-[10px] px-2 py-0.5"
+                <div className="flex items-center gap-2">
+                  <select
+                    value={member.role}
+                    onChange={(e) => handleRoleChange(member.id, member.name, e.target.value)}
+                    disabled={updateRoleMutation.isPending}
+                    className="h-7 rounded border border-input bg-background px-2 text-[11px] font-medium capitalize focus:outline-none focus:ring-1 focus:ring-primary"
+                    aria-label={`Change ${member.name}'s role`}
                   >
-                    {member.role}
-                  </Badge>
+                    <option value="Lead">Lead</option>
+                    <option value="Maintainer">Maintainer</option>
+                    <option value="Member">Member</option>
+                    <option value="Viewer">Viewer</option>
+                  </select>
 
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 text-muted-foreground hover:text-destructive transition-colors"
-                    onClick={() => handleRemoveMember(member.id, member.name)}
+                    onClick={() => setPendingRemoveMember({ id: member.id, name: member.name })}
                     disabled={deletingMemberId === member.id}
                     title="Remove member from team"
                   >
@@ -345,5 +371,17 @@ export function TeamMembersDialog({
         </div>
       </DialogContent>
     </Dialog>
-  );
+
+    <ConfirmDialog
+      isOpen={Boolean(pendingRemoveMember)}
+      onOpenChange={(open) => !open && setPendingRemoveMember(null)}
+      title="Remove Team Member"
+      description={`Are you sure you want to remove ${pendingRemoveMember?.name || ''} from ${teamName}? They will lose access to projects managed by this squad.`}
+      confirmText="Remove Member"
+      variant="destructive"
+      isLoading={removeMemberMutation.isPending}
+      onConfirm={handleConfirmRemoveMember}
+    />
+  </>
+);
 }

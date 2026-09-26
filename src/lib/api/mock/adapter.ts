@@ -315,6 +315,37 @@ export function resolveMockRequest(
     return wrapSuccess(newMember, 'Invitation sent');
   }
 
+  const orgMemberDeleteMatch = cleanUrl.match(/^\/api\/v1\/organizations\/([^/]+)\/members\/([^/]+)$/);
+  if (orgMemberDeleteMatch && normalizedMethod === 'DELETE') {
+    const orgId = orgMemberDeleteMatch[1];
+    const memberId = orgMemberDeleteMatch[2];
+    if (orgMembersStore[orgId]) {
+      orgMembersStore[orgId] = orgMembersStore[orgId].filter(
+        (m) => m.id !== memberId && m.user_id !== memberId
+      );
+    }
+    return wrapSuccess(null, 'Organization member removed');
+  }
+
+  const orgMemberPatchMatch = cleanUrl.match(/^\/api\/v1\/organizations\/([^/]+)\/members\/([^/]+)$/);
+  if (orgMemberPatchMatch && normalizedMethod === 'PATCH') {
+    const orgId = orgMemberPatchMatch[1];
+    const memberId = orgMemberPatchMatch[2];
+    const payload = (data || {}) as { role?: string };
+    if (!orgMembersStore[orgId]) {
+      orgMembersStore[orgId] = [...(mockOrgMembers[orgId] || mockOrgMembers['org-1'] || [])];
+    }
+    let updatedMember: OrgMemberDTO | null = null;
+    orgMembersStore[orgId] = orgMembersStore[orgId].map((m) => {
+      if (m.id === memberId || m.user_id === memberId) {
+        updatedMember = { ...m, role: (payload.role as any) || m.role };
+        return updatedMember;
+      }
+      return m;
+    });
+    return wrapSuccess(updatedMember, 'Organization member role updated');
+  }
+
   const orgTeamsMatch = cleanUrl.match(/^\/api\/v1\/organizations\/([^/]+)\/teams$/);
   if (orgTeamsMatch && normalizedMethod === 'GET') {
     const orgId = orgTeamsMatch[1];
@@ -386,6 +417,24 @@ export function resolveMockRequest(
       );
     }
     return wrapSuccess(null, 'Member removed from team');
+  }
+
+  const teamMemberPatchMatch = cleanUrl.match(/^\/api\/v1\/teams\/([^/]+)\/members\/([^/]+)$/);
+  if (teamMemberPatchMatch && normalizedMethod === 'PATCH') {
+    const teamId = teamMemberPatchMatch[1];
+    const memberId = teamMemberPatchMatch[2];
+    const payload = (data || {}) as { role?: string };
+    let updatedMember: TeamMemberDTO | null = null;
+    if (teamMembersStore[teamId]) {
+      teamMembersStore[teamId] = teamMembersStore[teamId].map((m) => {
+        if (m.id === memberId || m.user_id === memberId) {
+          updatedMember = { ...m, role: payload.role || m.role };
+          return updatedMember;
+        }
+        return m;
+      });
+    }
+    return wrapSuccess(updatedMember, 'Member role updated');
   }
 
   // Notifications

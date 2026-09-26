@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { useWorkspaceStore } from '@/lib/store/useWorkspaceStore';
 import {
   User,
   Settings,
@@ -23,11 +24,13 @@ import {
   Sun,
   Moon,
   Laptop,
+  Building2,
 } from 'lucide-react';
 
 export function UserNav() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
+  const { activeOrgId } = useWorkspaceStore();
   const [userName, setUserName] = useState('Monirul Islam');
   const [userEmail, setUserEmail] = useState('monirul@forge.dev');
 
@@ -87,8 +90,15 @@ export function UserNav() {
         <DropdownMenuGroup>
           <DropdownMenuItem asChild>
             <Link href="/settings" className="flex items-center cursor-pointer">
+              <Settings className="mr-2 h-4 w-4" />
+              <span>Account Settings</span>
+            </Link>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem asChild>
+            <Link href="/settings/profile" className="flex items-center cursor-pointer">
               <User className="mr-2 h-4 w-4" />
-              <span>Profile Settings</span>
+              <span>Profile Information</span>
             </Link>
           </DropdownMenuItem>
 
@@ -96,6 +106,16 @@ export function UserNav() {
             <Link href="/settings/security" className="flex items-center cursor-pointer">
               <Shield className="mr-2 h-4 w-4" />
               <span>Security & Keys</span>
+            </Link>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem asChild>
+            <Link
+              href={`/organizations/${activeOrgId || 'org-1'}`}
+              className="flex items-center cursor-pointer"
+            >
+              <Building2 className="mr-2 h-4 w-4" />
+              <span>Manage Organization</span>
             </Link>
           </DropdownMenuItem>
 

@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
@@ -20,6 +21,8 @@ import {
   Info,
   ExternalLink,
   Filter,
+  Search,
+  RotateCcw,
 } from 'lucide-react';
 
 export default function NotificationsPage() {
@@ -28,7 +31,10 @@ export default function NotificationsPage() {
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
 
-  const [filter, setFilter] = useState<'all' | 'unread' | 'info' | 'warning' | 'error' | 'success'>('all');
+  const [severityFilter, setSeverityFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [readFilter, setReadFilter] = useState<'all' | 'unread' | 'read'>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   const unreadCount = useMemo(() => {
     return notifications.filter((n) => !n.is_read).length;
@@ -36,11 +42,19 @@ export default function NotificationsPage() {
 
   const filteredNotifications = useMemo(() => {
     return notifications.filter((n) => {
-      if (filter === 'unread') return !n.is_read;
-      if (filter !== 'all') return n.severity === filter;
+      if (readFilter === 'unread' && n.is_read) return false;
+      if (readFilter === 'read' && !n.is_read) return false;
+      if (severityFilter !== 'all' && n.severity !== severityFilter) return false;
+      if (categoryFilter !== 'all' && (n.category || 'deployment') !== categoryFilter) return false;
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const matchesTitle = n.title.toLowerCase().includes(query);
+        const matchesMsg = n.message.toLowerCase().includes(query);
+        if (!matchesTitle && !matchesMsg) return false;
+      }
       return true;
     });
-  }, [notifications, filter]);
+  }, [notifications, severityFilter, categoryFilter, readFilter, searchQuery]);
 
   const handleMarkAllRead = async () => {
     try {
@@ -65,6 +79,15 @@ export default function NotificationsPage() {
       // quiet fail
     }
   };
+
+  const resetFilters = () => {
+    setSeverityFilter('all');
+    setCategoryFilter('all');
+    setReadFilter('all');
+    setSearchQuery('');
+  };
+
+  const isFiltered = severityFilter !== 'all' || categoryFilter !== 'all' || readFilter !== 'all' || searchQuery !== '';
 
   const getSeverityIcon = (severity: string) => {
     switch (severity) {
@@ -93,7 +116,7 @@ export default function NotificationsPage() {
             )}
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Build status alerts, deployment failures, and organization activity stream.
+            Build status alerts, security notices, and organization activity stream.
           </p>
         </div>
 
@@ -111,20 +134,72 @@ export default function NotificationsPage() {
         )}
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-        <Filter className="h-4 w-4 text-muted-foreground mr-1 shrink-0" />
-        {(['all', 'unread', 'info', 'warning', 'error', 'success'] as const).map((tab) => (
-          <Button
-            key={tab}
-            variant={filter === tab ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilter(tab)}
-            className="capitalize h-8 text-xs shrink-0"
+      {/* Filter Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-xl border border-border bg-card/60">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Search alerts and notifications..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-8 text-xs h-9"
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Read Status Dropdown */}
+          <select
+            value={readFilter}
+            onChange={(e) => setReadFilter(e.target.value as any)}
+            className="h-9 rounded-md border border-input bg-background px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+            aria-label="Filter by read status"
           >
-            {tab}
-          </Button>
-        ))}
+            <option value="all">All Status</option>
+            <option value="unread">Unread Only</option>
+            <option value="read">Read Only</option>
+          </select>
+
+          {/* Category Dropdown */}
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="h-9 rounded-md border border-input bg-background px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+            aria-label="Filter by category"
+          >
+            <option value="all">All Categories</option>
+            <option value="deployment">Deployments</option>
+            <option value="security">Security</option>
+            <option value="team">Team Activity</option>
+            <option value="system">System Alerts</option>
+          </select>
+
+          {/* Severity Dropdown */}
+          <select
+            value={severityFilter}
+            onChange={(e) => setSeverityFilter(e.target.value)}
+            className="h-9 rounded-md border border-input bg-background px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary capitalize"
+            aria-label="Filter by severity"
+          >
+            <option value="all">All Severities</option>
+            <option value="info">Info</option>
+            <option value="warning">Warning</option>
+            <option value="error">Error</option>
+            <option value="success">Success</option>
+          </select>
+
+          {isFiltered && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={resetFilters}
+              className="h-9 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+              title="Reset all filters"
+            >
+              <RotateCcw className="h-3.5 w-3.5 mr-1" />
+              Reset
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Notifications Feed */}
@@ -142,10 +217,15 @@ export default function NotificationsPage() {
             </div>
             <h3 className="font-semibold text-base">No Notifications</h3>
             <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-              {filter === 'unread'
-                ? "You're all caught up! No unread notifications found."
-                : 'No notifications match the selected category filter.'}
+              {isFiltered
+                ? 'No notifications match the selected search and filter criteria.'
+                : "You're all caught up! No notifications found."}
             </p>
+            {isFiltered && (
+              <Button size="sm" variant="outline" onClick={resetFilters} className="text-xs">
+                Clear Filters
+              </Button>
+            )}
           </div>
         ) : (
           filteredNotifications.map((notif) => (
@@ -159,10 +239,15 @@ export default function NotificationsPage() {
                 <div className="shrink-0 mt-0.5">{getSeverityIcon(notif.severity)}</div>
 
                 <div className="space-y-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h3 className={`text-sm tracking-tight truncate ${notif.is_read ? 'font-medium' : 'font-semibold text-foreground'}`}>
                       {notif.title}
                     </h3>
+                    {notif.category && (
+                      <Badge variant="outline" className="text-[10px] uppercase font-mono px-1.5 py-0">
+                        {notif.category}
+                      </Badge>
+                    )}
                     {!notif.is_read && (
                       <span className="h-2 w-2 rounded-full bg-primary shrink-0" />
                     )}

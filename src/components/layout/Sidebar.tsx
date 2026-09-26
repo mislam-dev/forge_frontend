@@ -31,7 +31,6 @@ import {
 const navItems = [
   { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Projects', href: '/projects', icon: FolderGit2 },
-  { name: 'Organizations', href: '/organizations', icon: Building2 },
   { name: 'Teams', href: '/teams', icon: Users },
   { name: 'Notifications', href: '/notifications', icon: Bell },
   { name: 'Settings', href: '/settings', icon: Settings },
@@ -131,7 +130,7 @@ export function Sidebar() {
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link
-                  href="/organizations"
+                  href="/organizations/new"
                   className="flex items-center cursor-pointer text-primary"
                 >
                   <Plus className="mr-2 h-4 w-4" />

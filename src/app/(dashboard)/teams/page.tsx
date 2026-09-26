@@ -1,92 +1,40 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@/lib/validation/zodResolver';
-import { useTeamsList, useCreateTeam, useDeleteTeam } from '@/lib/hooks/api/useTeams';
-import { useWorkspaceStore } from '@/lib/store/useWorkspaceStore';
+import { useTeamsList, useDeleteTeam } from '@/lib/hooks/api/useTeams';
 import { TeamMembersDialog } from '@/components/teams/TeamMembersDialog';
-import { createTeamSchema, CreateTeamValues } from '@/lib/validation/teams';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Users, Plus, Trash2, Search, Layers, UserCheck } from 'lucide-react';
 
 export default function GlobalTeamsPage() {
   const { toast } = useToast();
-  const { activeOrgId } = useWorkspaceStore();
   const { data: teams = [], isLoading } = useTeamsList();
-  const createTeam = useCreateTeam();
   const deleteTeam = useDeleteTeam();
 
   const [search, setSearch] = useState('');
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [managingTeam, setManagingTeam] = useState<{ id: string; name: string } | null>(null);
-
-  const form = useForm<CreateTeamValues>({
-    resolver: zodResolver(createTeamSchema),
-    defaultValues: {
-      name: '',
-      description: '',
-    },
-  });
+  const [pendingDeleteTeam, setPendingDeleteTeam] = useState<{ id: string; name: string } | null>(null);
 
   const filteredTeams = teams.filter((t) =>
     t.name.toLowerCase().includes(search.toLowerCase()) ||
     (t.description && t.description.toLowerCase().includes(search.toLowerCase()))
   );
 
-  const handleCreate = async (values: CreateTeamValues) => {
-    try {
-      await createTeam.mutateAsync({
-        name: values.name.trim(),
-        description: values.description?.trim() || '',
-        org_id: activeOrgId || 'org-1',
-      });
-
-      toast({
-        title: 'Team Created',
-        description: `Team "${values.name}" created successfully.`,
-      });
-      form.reset();
-      setDialogOpen(false);
-    } catch (err: any) {
-      toast({
-        title: 'Creation Failed',
-        description: err?.message || 'Failed to create team.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleDelete = async (id: string, teamName: string) => {
-    if (!confirm(`Are you sure you want to remove team "${teamName}"?`)) return;
+  const handleConfirmDeleteTeam = async () => {
+    if (!pendingDeleteTeam) return;
 
     try {
-      await deleteTeam.mutateAsync(id);
+      await deleteTeam.mutateAsync(pendingDeleteTeam.id);
       toast({
         title: 'Team Removed',
-        description: `Team "${teamName}" was removed.`,
+        description: `Team "${pendingDeleteTeam.name}" was removed.`,
       });
+      setPendingDeleteTeam(null);
     } catch (err: any) {
       toast({
         title: 'Removal Failed',
@@ -107,80 +55,12 @@ export default function GlobalTeamsPage() {
           </p>
         </div>
 
-        <Dialog
-          open={dialogOpen}
-          onOpenChange={(open) => {
-            setDialogOpen(open);
-            if (!open) {
-              form.reset();
-            }
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button size="sm" className="h-9 text-xs">
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              New Team
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Create Team</DialogTitle>
-              <DialogDescription>
-                Define a new collaborative team inside your active workspace.
-              </DialogDescription>
-            </DialogHeader>
-
-            <Form {...form}>
-              <form noValidate onSubmit={form.handleSubmit(handleCreate)} className="space-y-4 py-2">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Team Name *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Frontend Guild" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description (Optional)</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Responsibilities, microservices owned, or communication channels..."
-                          rows={2}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="flex justify-end gap-2 pt-2 border-t border-border">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setDialogOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" size="sm" disabled={createTeam.isPending}>
-                    {createTeam.isPending ? 'Creating...' : 'Create Team'}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+        <Button size="sm" asChild className="h-9 text-xs">
+          <Link href="/teams/new">
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            New Team
+          </Link>
+        </Button>
       </div>
 
       {/* Search */}
@@ -251,7 +131,7 @@ export default function GlobalTeamsPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleDelete(team.id, team.name)}
+                      onClick={() => setPendingDeleteTeam({ id: team.id, name: team.name })}
                       className="h-8 w-8 text-muted-foreground hover:text-destructive"
                       title="Delete team"
                     >
@@ -284,6 +164,17 @@ export default function GlobalTeamsPage() {
           }}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={Boolean(pendingDeleteTeam)}
+        onOpenChange={(open) => !open && setPendingDeleteTeam(null)}
+        title="Remove Team"
+        description={`Are you sure you want to remove team "${pendingDeleteTeam?.name || ''}"? This action cannot be undone and will revoke this team's access to all projects.`}
+        confirmText="Remove Team"
+        variant="destructive"
+        isLoading={deleteTeam.isPending}
+        onConfirm={handleConfirmDeleteTeam}
+      />
     </div>
   );
 }

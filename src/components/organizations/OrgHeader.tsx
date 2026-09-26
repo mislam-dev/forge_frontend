@@ -8,7 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOrganizationDetail } from '@/lib/hooks/api/useOrganizations';
 import {
-  ArrowLeft,
   Building2,
   Users,
   Shield,
@@ -41,13 +40,6 @@ export function OrgHeader({ orgId }: OrgHeaderProps) {
   return (
     <div className="space-y-6 pb-2 border-b border-border">
       <div>
-        <Button variant="ghost" size="sm" asChild className="mb-2 -ml-2 text-xs">
-          <Link href="/organizations">
-            <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-            All Organizations
-          </Link>
-        </Button>
-
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold text-sm">
             {org?.name ? org.name.slice(0, 2).toUpperCase() : 'OR'}
