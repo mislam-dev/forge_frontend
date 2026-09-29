@@ -54,19 +54,17 @@ export default function ProjectAccessPage() {
   const form = useForm<ProjectAccessAssignValues>({
     resolver: zodResolver(projectAccessAssignSchema),
     defaultValues: {
-      target_type: 'team',
+      target_type: 'user',
       target_id: '',
       role: 'Member',
     },
   });
 
-  const targetType = form.watch('target_type');
-
   const handleAssign = async (values: ProjectAccessAssignValues) => {
     try {
       await assignRole.mutateAsync({
         target_id: values.target_id.trim(),
-        target_type: values.target_type,
+        target_type: 'user',
         role: values.role,
       });
 
@@ -75,7 +73,7 @@ export default function ProjectAccessPage() {
         description: `${values.role} role assigned to ${values.target_id}.`,
       });
       form.reset({
-        target_type: 'team',
+        target_type: 'user',
         target_id: '',
         role: 'Member',
       });
@@ -108,6 +106,8 @@ export default function ProjectAccessPage() {
     }
   };
 
+  const userAccessList = accessList.filter((item) => item.type !== 'team');
+
   return (
     <div className="space-y-8">
       <ProjectHeader projectId={projectId} />
@@ -120,7 +120,7 @@ export default function ProjectAccessPage() {
               Project Access & Permissions
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Control which teams and individual developers have deploy, read, or admin privileges for this service.
+              Control which user collaborators have deploy, read, or admin privileges for this service.
             </p>
           </div>
 
@@ -136,14 +136,14 @@ export default function ProjectAccessPage() {
             <DialogTrigger asChild>
               <Button size="sm" className="h-9 text-xs">
                 <UserPlus className="mr-1.5 h-3.5 w-3.5" />
-                Assign Role
+                Assign User
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Assign Project Role</DialogTitle>
+                <DialogTitle>Grant Project Access</DialogTitle>
                 <DialogDescription>
-                  Grant a team or team member role-based privileges on this project.
+                  Grant a user collaborator role-based access privileges on this project.
                 </DialogDescription>
               </DialogHeader>
 
@@ -155,52 +155,13 @@ export default function ProjectAccessPage() {
                 >
                   <FormField
                     control={form.control}
-                    name="target_type"
-                    render={({ field }) => (
-                      <FormItem className="space-y-2">
-                        <FormLabel>Grant Access To</FormLabel>
-                        <FormControl>
-                          <div className="grid grid-cols-2 gap-2">
-                            <Button
-                              type="button"
-                              variant={field.value === 'team' ? 'default' : 'outline'}
-                              size="sm"
-                              onClick={() => field.onChange('team')}
-                              className="text-xs"
-                            >
-                              Team
-                            </Button>
-                            <Button
-                              type="button"
-                              variant={field.value === 'user' ? 'default' : 'outline'}
-                              size="sm"
-                              onClick={() => field.onChange('user')}
-                              className="text-xs"
-                            >
-                              Individual User
-                            </Button>
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
                     name="target_id"
                     render={({ field }) => (
                       <FormItem className="space-y-2">
-                        <FormLabel>
-                          {targetType === 'team' ? 'Team Name *' : 'User Email or Handle *'}
-                        </FormLabel>
+                        <FormLabel>User Email or Handle *</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder={
-                              targetType === 'team'
-                                ? 'e.g. SRE & Infra Team'
-                                : 'e.g. alex@forge.dev'
-                            }
+                            placeholder="e.g. alex@forge.dev"
                             {...field}
                           />
                         </FormControl>
@@ -222,7 +183,7 @@ export default function ProjectAccessPage() {
                             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                           >
                             <option value="Admin">Admin (Full Control, Secrets, Delete)</option>
-                            <option value="Member">Member (Deploy, View Logs, Trigger)</option>
+                            <option value="Member">Developer / Member (Deploy, View Logs, Trigger)</option>
                             <option value="Viewer">Viewer (Read-only, View Logs)</option>
                           </select>
                         </FormControl>
@@ -257,14 +218,14 @@ export default function ProjectAccessPage() {
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
             </div>
-          ) : accessList.length === 0 ? (
+          ) : userAccessList.length === 0 ? (
             <div className="p-12 text-center space-y-3">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-muted text-muted-foreground">
                 <Users className="h-6 w-6" />
               </div>
-              <h3 className="font-semibold text-base">No Roles Configured</h3>
+              <h3 className="font-semibold text-base">No Collaborators Assigned</h3>
               <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                Only organization administrators currently have access to this project.
+                Only the project owner currently has access. Grant individual users access above.
               </p>
             </div>
           ) : (
@@ -272,15 +233,14 @@ export default function ProjectAccessPage() {
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/30 text-xs text-muted-foreground font-medium">
-                    <th className="py-3 px-4 font-medium">Member / Team</th>
-                    <th className="py-3 px-4 font-medium">Type</th>
+                    <th className="py-3 px-4 font-medium">User Collaborator</th>
                     <th className="py-3 px-4 font-medium">Role</th>
                     <th className="py-3 px-4 font-medium">Assigned</th>
                     <th className="py-3 px-4 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {accessList.map((item) => (
+                  {userAccessList.map((item) => (
                     <tr key={item.id} className="hover:bg-muted/30 transition-colors">
                       <td className="py-3.5 px-4 font-medium text-xs">
                         <div className="flex items-center gap-2">
@@ -289,12 +249,6 @@ export default function ProjectAccessPage() {
                           </div>
                           <span>{item.name}</span>
                         </div>
-                      </td>
-
-                      <td className="py-3.5 px-4">
-                        <Badge variant="outline" className="capitalize text-xs">
-                          {item.type}
-                        </Badge>
                       </td>
 
                       <td className="py-3.5 px-4">

@@ -4,6 +4,8 @@ import {
   ApiResponse,
   EnvironmentVariableDTO,
   CreateEnvVarRequest,
+  ProjectEnvVarItemDTO,
+  BulkCreateProjectEnvVarDTO,
   BulkEnvVarItem,
   SaveEnvVarsRequest,
 } from '@/lib/api/types';
@@ -51,11 +53,14 @@ export function useCreateEnvVar(projectId: string) {
 export function useBulkCreateEnvVars(projectId: string) {
   const queryClient = useQueryClient();
 
-  return useMutation<{ count: number }, Error, BulkEnvVarItem[]>({
-    mutationFn: async (items) => {
+  return useMutation<{ count: number }, Error, ProjectEnvVarItemDTO[] | BulkCreateProjectEnvVarDTO>({
+    mutationFn: async (itemsOrPayload) => {
+      const payload: BulkCreateProjectEnvVarDTO = Array.isArray(itemsOrPayload)
+        ? { vars: itemsOrPayload }
+        : itemsOrPayload;
       const res = (await apiClient.post(
         `/api/v1/projects/${projectId}/env-vars/bulk`,
-        items
+        payload
       )) as unknown as ApiResponse<{ count: number }>;
       return res.data;
     },
@@ -124,7 +129,7 @@ export function useSaveEnvVars(projectId: string) {
       // Route via bulk endpoint
       await apiClient.post(
         `/api/v1/projects/${projectId}/env-vars/bulk`,
-        payload.variables
+        { vars: payload.variables }
       );
       const res = (await apiClient.get(
         `/api/v1/projects/${projectId}/env-vars`

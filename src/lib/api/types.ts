@@ -282,7 +282,7 @@ export interface ProjectDTO {
 }
 
 export interface CreateProjectRequest {
-  organization_id: string;
+  organization_id?: string | null;
   name: string;
   description?: string;
   slug?: string;
@@ -348,13 +348,15 @@ export interface UpdateRepositoryRequest {
 // 6. Environment Variables DTOs
 // ==========================================
 
+export type ProjectEnvironment = 'Development' | 'Production' | 'Staging';
+
 export interface EnvironmentVariableDTO {
   id: string;
   project_id: string;
   key: string;
   value?: string;
   masked_value: string;
-  environment: 'development' | 'staging' | 'production' | 'all' | 'preview' | string;
+  environment: ProjectEnvironment;
   is_secret?: boolean;
   created_at: string;
   updated_at?: string;
@@ -363,21 +365,27 @@ export interface EnvironmentVariableDTO {
 export interface CreateEnvVarRequest {
   key: string;
   value: string;
-  environment?: 'development' | 'staging' | 'production' | string;
+  environment: ProjectEnvironment;
   is_secret?: boolean;
 }
 
-export interface BulkEnvVarItem {
+export interface ProjectEnvVarItemDTO {
   key: string;
   value: string;
-  environment?: string;
   is_secret?: boolean;
+  environment: ProjectEnvironment;
 }
+
+export interface BulkCreateProjectEnvVarDTO {
+  vars: ProjectEnvVarItemDTO[];
+}
+
+export type BulkEnvVarItem = ProjectEnvVarItemDTO;
 
 export interface SaveEnvVarItem {
   key: string;
   value: string;
-  environment: string;
+  environment: ProjectEnvironment;
   is_secret?: boolean;
 }
 

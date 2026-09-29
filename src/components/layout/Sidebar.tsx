@@ -100,6 +100,13 @@ export function Sidebar() {
   const isPersonal = !activeOrgId;
   const currentOrgName = activeOrgName || orgs.find((o) => o.id === activeOrgId)?.name || 'Organization';
 
+  const visibleNavItems = useMemo(() => {
+    if (isPersonal) {
+      return navItems.filter((item) => item.name !== 'Teams');
+    }
+    return navItems;
+  }, [isPersonal]);
+
   const handleSelectPersonal = () => {
     if (activeOrgId !== null) {
       setPersonalWorkspace();
@@ -250,7 +257,7 @@ export function Sidebar() {
 
       {/* Navigation Links */}
       <nav className="flex-1 space-y-1.5 p-2 overflow-y-auto">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const isActive =
             pathname === item.href ||
             (item.href !== '/dashboard' && pathname.startsWith(item.href));

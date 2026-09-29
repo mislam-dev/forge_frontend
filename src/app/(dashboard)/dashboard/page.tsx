@@ -126,18 +126,22 @@ export default function DashboardPage() {
             All Projects
           </Link>
         </Button>
-        <Button variant="secondary" size="sm" asChild className="h-8 text-xs">
-          <Link href={`/organizations/${activeOrgId || 'org-1'}`}>
-            <Building className="mr-1.5 h-3.5 w-3.5" />
-            Manage Organization
-          </Link>
-        </Button>
-        <Button variant="secondary" size="sm" asChild className="h-8 text-xs">
-          <Link href="/teams">
-            <Users className="mr-1.5 h-3.5 w-3.5" />
-            Teams & Access
-          </Link>
-        </Button>
+        {activeOrgId && (
+          <>
+            <Button variant="secondary" size="sm" asChild className="h-8 text-xs">
+              <Link href={`/organizations/${activeOrgId}`}>
+                <Building className="mr-1.5 h-3.5 w-3.5" />
+                Manage Organization
+              </Link>
+            </Button>
+            <Button variant="secondary" size="sm" asChild className="h-8 text-xs">
+              <Link href="/teams">
+                <Users className="mr-1.5 h-3.5 w-3.5" />
+                Teams & Access
+              </Link>
+            </Button>
+          </>
+        )}
         <Button variant="secondary" size="sm" asChild className="h-8 text-xs">
           <Link href="/notifications">
             <Bell className="mr-1.5 h-3.5 w-3.5" />

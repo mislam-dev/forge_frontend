@@ -70,10 +70,10 @@ The system SHALL provide project overview details and repository configuration a
 - **THEN** the system SHALL issue `POST /api/v1/projects/:id/repository/clone` and show an accepted notification confirming the clone job has begun.
 
 ### Requirement: Environment Variables Management & Secret Masking
-The system SHALL provide an environment variable editor at `/projects/[id]/env-vars` supporting key-value additions, POSIX key format validation (`^[A-Z_][A-Z0-9_]*$`), environment scoping (production/staging/all), bulk `.env` syntax parsing, single and bulk creation, listing with environment filtering, editing, and deletion in accordance with `/api/v1/projects/:id/env-vars` endpoints.
+The system SHALL provide an environment variable editor at `/projects/[id]/env-vars` supporting key-value additions, POSIX key format validation (`^[A-Z_][A-Z0-9_]*$`), environment scoping restricted to `Development`, `Production`, and `Staging`, bulk `.env` syntax parsing, single and bulk creation, listing with environment filtering, editing, and deletion in accordance with `/api/v1/projects/:id/env-vars` endpoints.
 
 #### Scenario: Adding and validating environment variable
-- **WHEN** a user enters a valid POSIX key, value, and environment scope and clicks "Add"
+- **WHEN** a user enters a valid POSIX key, value, and selects an environment from `Development`, `Production`, or `Staging` and clicks "Add"
 - **THEN** the variable SHALL appear in the staging table ready for bulk save, rejecting invalid key names with descriptive validation errors.
 
 #### Scenario: Toggling secret mask visibility
@@ -82,11 +82,11 @@ The system SHALL provide an environment variable editor at `/projects/[id]/env-v
 
 #### Scenario: Pasting raw .env content
 - **WHEN** a user pastes multiline `KEY=VALUE` formatted strings into the bulk paste modal
-- **THEN** the system SHALL parse all valid pairs into the variables table while reporting any malformed entries.
+- **THEN** the system SHALL parse all valid pairs into the variables table defaulting to `Production` environment while reporting any malformed entries.
 
 #### Scenario: Bulk creating environment variables
-- **WHEN** a user pastes multiline environment declarations and submits the bulk import form
-- **THEN** the system SHALL issue `POST /api/v1/projects/:id/env-vars/bulk` with an array of variable objects and refresh the variable list.
+- **WHEN** a user saves or bulk-imports environment variables in the project wizard or environment variables editor
+- **THEN** the system SHALL issue `POST /api/v1/projects/:id/env-vars/bulk` with an object payload formatted as `{ vars: [...] }` matching `BulkCreateProjectEnvVarDTO`, ensuring each item specifies `environment` as one of `"Development"`, `"Production"`, or `"Staging"`.
 
 #### Scenario: Updating and deleting an environment variable
 - **WHEN** an authorized user edits or deletes a specific variable row

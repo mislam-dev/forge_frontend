@@ -12,7 +12,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { useCreateProject } from '@/lib/hooks/api/useProjects';
 import { useWorkspaceStore } from '@/lib/store/useWorkspaceStore';
-import { ProjectRuntime, ProjectType } from '@/lib/api/types';
+import { ProjectRuntime, ProjectType, ProjectEnvVarItemDTO, ProjectEnvironment } from '@/lib/api/types';
+import { apiClient } from '@/lib/api/client';
 import {
   projectStep1Schema,
   projectStep2Schema,
@@ -46,21 +47,24 @@ import {
 interface EnvVarRow {
   key: string;
   value: string;
-  environment: string;
+  environment: ProjectEnvironment;
 }
 
 interface NewProjectWizardProps {
   isModal?: boolean;
   onCancel?: () => void;
+  onSuccess?: (projectId: string) => void;
 }
 
-export function NewProjectWizard({ isModal = false, onCancel }: NewProjectWizardProps) {
+export function NewProjectWizard({ isModal = false, onCancel, onSuccess }: NewProjectWizardProps) {
   const router = useRouter();
   const { toast } = useToast();
   const { activeOrgId } = useWorkspaceStore();
   const createProject = useCreateProject();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittingStatus, setSubmittingStatus] = useState<string>('');
   const [visibleSecrets, setVisibleSecrets] = useState<Record<number, boolean>>({});
 
   const toggleSecretVisibility = (index: number) => {
@@ -91,11 +95,11 @@ export function NewProjectWizard({ isModal = false, onCancel }: NewProjectWizard
 
   // Step 3 state
   const [envVars, setEnvVars] = useState<EnvVarRow[]>([
-    { key: 'PORT', value: '8080', environment: 'all' },
+    { key: 'PORT', value: '8080', environment: 'Production' },
   ]);
 
   const addEnvRow = () => {
-    setEnvVars((prev) => [...prev, { key: '', value: '', environment: 'all' }]);
+    setEnvVars((prev) => [...prev, { key: '', value: '', environment: 'Production' }]);
   };
 
   const updateEnvRow = (index: number, field: keyof EnvVarRow, val: string) => {
@@ -118,34 +122,108 @@ export function NewProjectWizard({ isModal = false, onCancel }: NewProjectWizard
 
   const handleSubmit = async () => {
     try {
+      setIsSubmitting(true);
+      setSubmittingStatus('Creating project...');
       const step1 = step1Form.getValues();
       const step2 = step2Form.getValues();
       const validEnvVars = envVars.filter((ev) => ev.key.trim().length > 0);
 
+      // 1. Create project (omit organization_id when in personal workspace)
       const created = await createProject.mutateAsync({
         name: step1.name.trim(),
         description: step1.description?.trim() || '',
         runtime: step1.runtime as ProjectRuntime,
         project_type: step1.project_type as ProjectType,
-        organization_id: activeOrgId || 'org-1',
-        repository_url: step2.repository_url.trim(),
+        organization_id: activeOrgId || undefined,
+        repository_url: step2.repository_url.trim() || undefined,
         branch: step2.branch.trim() || 'main',
         pat_token: step2.pat_token?.trim() || undefined,
         env_vars: validEnvVars,
       });
+
+      // 2. Persist repository configuration to server if repository_url provided
+      if (step2.repository_url.trim()) {
+        try {
+          setSubmittingStatus('Saving repository configuration...');
+          await apiClient.post(`/api/v1/projects/${created.id}/repository`, {
+            repo_url: step2.repository_url.trim(),
+            repository_url: step2.repository_url.trim(),
+            default_branch: step2.branch.trim() || 'main',
+            branch: step2.branch.trim() || 'main',
+            auth_token: step2.pat_token?.trim() || undefined,
+            access_token: step2.pat_token?.trim() || undefined,
+            auth_type: step2.pat_token?.trim() ? 'pat' : 'public',
+          });
+        } catch (repoErr: any) {
+          console.error('Failed to link repository configuration:', repoErr);
+          toast({
+            title: 'Repository Configuration Warning',
+            description: repoErr?.message || 'Project was created, but repository details could not be saved to server.',
+            variant: 'destructive',
+          });
+        }
+      }
+
+      // 3. Persist environment variables to server
+      if (validEnvVars.length > 0) {
+        try {
+          setSubmittingStatus('Saving environment variables...');
+          const formattedVars: ProjectEnvVarItemDTO[] = validEnvVars.map((ev) => {
+            let envScope: ProjectEnvironment = 'Production';
+            const lower = ev.environment.toLowerCase();
+            if (lower === 'development') envScope = 'Development';
+            else if (lower === 'staging') envScope = 'Staging';
+            else envScope = 'Production';
+
+            return {
+              key: ev.key.trim(),
+              value: ev.value,
+              environment: envScope,
+              is_secret: true,
+            };
+          });
+
+          try {
+            await apiClient.post(`/api/v1/projects/${created.id}/env-vars/bulk`, {
+              vars: formattedVars,
+            });
+          } catch {
+            for (const item of formattedVars) {
+              await apiClient.post(`/api/v1/projects/${created.id}/env-vars`, item);
+            }
+          }
+        } catch (envErr: any) {
+          console.error('Failed to save environment variables:', envErr);
+          toast({
+            title: 'Environment Variables Warning',
+            description: envErr?.message || 'Project was created, but some environment variables could not be saved to server.',
+            variant: 'destructive',
+          });
+        }
+      }
 
       toast({
         title: 'Project Created',
         description: `Project "${created.name}" is ready.`,
       });
 
-      router.push(`/projects/${created.id}`);
+      if (onSuccess) {
+        onSuccess(created.id);
+      } else if (isModal && onCancel) {
+        onCancel();
+        router.push(`/projects/${created.id}`);
+      } else {
+        router.push(`/projects/${created.id}`);
+      }
     } catch (err: any) {
       toast({
         title: 'Creation Failed',
         description: err?.message || 'Could not create project. Please try again.',
         variant: 'destructive',
       });
+    } finally {
+      setIsSubmitting(false);
+      setSubmittingStatus('');
     }
   };
 
@@ -494,12 +572,12 @@ export function NewProjectWizard({ isModal = false, onCancel }: NewProjectWizard
                   </div>
                   <select
                     value={row.environment}
-                    onChange={(e) => updateEnvRow(idx, 'environment', e.target.value)}
+                    onChange={(e) => updateEnvRow(idx, 'environment', e.target.value as ProjectEnvironment)}
                     className="h-9 rounded-md border border-input bg-background px-3 text-xs"
                   >
-                    <option value="all">All Envs</option>
-                    <option value="production">Production</option>
-                    <option value="preview">Preview</option>
+                    <option value="Production">Production</option>
+                    <option value="Staging">Staging</option>
+                    <option value="Development">Development</option>
                   </select>
                   <Button
                     type="button"
@@ -524,9 +602,11 @@ export function NewProjectWizard({ isModal = false, onCancel }: NewProjectWizard
               type="button"
               size="sm"
               onClick={handleSubmit}
-              disabled={createProject.isPending}
+              disabled={isSubmitting || createProject.isPending}
             >
-              {createProject.isPending ? 'Creating Project...' : 'Create & Finish'}
+              {isSubmitting
+                ? (submittingStatus || 'Creating Project...')
+                : 'Create & Finish'}
               <CheckCircle2 className="ml-2 h-4 w-4" />
             </Button>
           </div>

@@ -44,7 +44,7 @@ export function ProjectHeader({ projectId }: ProjectHeaderProps) {
     { label: 'Deployments', href: `/projects/${projectId}/deployments`, icon: Terminal },
     { label: 'Environment Vars', href: `/projects/${projectId}/env-vars`, icon: Key },
     { label: 'Repository', href: `/projects/${projectId}/repository`, icon: FolderGit2 },
-    { label: 'Access & Teams', href: `/projects/${projectId}/access`, icon: Users },
+    { label: 'Access Control', href: `/projects/${projectId}/access`, icon: Users },
   ];
 
   const handleDeploy = async () => {

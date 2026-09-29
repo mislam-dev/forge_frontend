@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { useProjectEnvVars, useSaveEnvVars } from '@/lib/hooks/api/useEnvVars';
+import { ProjectEnvironment } from '@/lib/api/types';
 import {
   Key,
   Plus,
@@ -40,7 +41,7 @@ interface EditableEnvVar {
   key: string;
   value: string;
   masked_value?: string;
-  environment: string;
+  environment: ProjectEnvironment;
 }
 
 const POSIX_KEY_REGEX = /^[A-Z_][A-Z0-9_]*$/;
@@ -72,6 +73,13 @@ export default function ProjectEnvVarsPage() {
     }
   };
 
+  const normalizeEnvironment = (env: string): ProjectEnvironment => {
+    const lower = (env || '').toLowerCase();
+    if (lower === 'development') return 'Development';
+    if (lower === 'staging') return 'Staging';
+    return 'Production';
+  };
+
   useEffect(() => {
     if (serverEnvVars) {
       setEnvVars(
@@ -80,7 +88,7 @@ export default function ProjectEnvVarsPage() {
           key: ev.key,
           value: ev.value || '',
           masked_value: ev.masked_value || '••••••••••••••••',
-          environment: ev.environment,
+          environment: normalizeEnvironment(ev.environment),
         }))
       );
     }
@@ -93,7 +101,7 @@ export default function ProjectEnvVarsPage() {
         id: `temp-${Date.now()}-${Math.random()}`,
         key: '',
         value: '',
-        environment: 'all',
+        environment: 'Production',
       },
     ]);
   };
@@ -141,7 +149,7 @@ export default function ProjectEnvVarsPage() {
         id: `bulk-${Date.now()}-${i}`,
         key,
         value: val,
-        environment: 'all',
+        environment: 'Production',
       });
     }
 
@@ -372,13 +380,12 @@ export default function ProjectEnvVarsPage() {
                       <td className="py-3 px-4 align-top">
                         <select
                           value={row.environment}
-                          onChange={(e) => updateRow(row.id, 'environment', e.target.value)}
-                          className="h-9 w-full rounded-md border border-input bg-background px-3 text-xs capitalize"
+                          onChange={(e) => updateRow(row.id, 'environment', e.target.value as ProjectEnvironment)}
+                          className="h-9 w-full rounded-md border border-input bg-background px-3 text-xs"
                         >
-                          <option value="all">All Environments</option>
-                          <option value="production">Production Only</option>
-                          <option value="preview">Preview / Staging</option>
-                          <option value="development">Development</option>
+                          <option value="Production">Production</option>
+                          <option value="Staging">Staging</option>
+                          <option value="Development">Development</option>
                         </select>
                       </td>
 
