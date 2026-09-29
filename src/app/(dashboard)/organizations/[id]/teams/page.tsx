@@ -56,8 +56,8 @@ export default function OrgTeamsPage() {
     try {
       await createTeam.mutateAsync({
         name: values.name.trim(),
-        description: values.description?.trim() || '',
-        org_id: orgId,
+        descriptions: values.description?.trim() || null,
+        organization_id: orgId,
       });
 
       toast({

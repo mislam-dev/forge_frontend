@@ -4,7 +4,7 @@ export const createTeamSchema = z.object({
   name: z
     .string()
     .min(2, 'Team name must be at least 2 characters')
-    .max(50, 'Team name cannot exceed 50 characters'),
+    .max(255, 'Team name cannot exceed 255 characters'),
   description: z.string().optional(),
 });
 

@@ -3,6 +3,7 @@ import { apiClient } from '@/lib/api/client';
 import {
   ApiResponse,
   TeamDTO,
+  CreateTeamDTO,
   CreateTeamRequest,
   TeamMemberDTO,
   AddTeamMemberRequest,
@@ -37,7 +38,12 @@ export function useCreateTeam() {
 
   return useMutation<TeamDTO, Error, CreateTeamRequest>({
     mutationFn: async (payload) => {
-      const res = (await apiClient.post('/api/v1/teams', payload)) as unknown as ApiResponse<TeamDTO>;
+      const body: CreateTeamDTO = {
+        organization_id: payload.organization_id || payload.org_id!,
+        name: payload.name.trim(),
+        descriptions: payload.descriptions ?? payload.description ?? null,
+      };
+      const res = (await apiClient.post('/api/v1/teams', body)) as unknown as ApiResponse<TeamDTO>;
       return res.data;
     },
     onSuccess: () => {

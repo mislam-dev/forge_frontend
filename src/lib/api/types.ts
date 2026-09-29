@@ -224,12 +224,15 @@ export interface TeamDTO {
   created_at: string;
 }
 
-export interface CreateTeamRequest {
+export interface CreateTeamDTO {
+  organization_id: string;
   name: string;
-  description?: string;
+  descriptions?: string | null;
+  description?: string | null;
   org_id?: string;
-  organization_id?: string;
 }
+
+export type CreateTeamRequest = CreateTeamDTO;
 
 export interface TeamMemberDTO {
   id: string;
