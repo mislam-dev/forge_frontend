@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ProjectHeader } from '@/components/projects/ProjectHeader';
@@ -11,6 +11,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useProjectDetail, useDeleteProject } from '@/lib/hooks/api/useProjects';
 import { useDeploymentsList } from '@/lib/hooks/api/useDeployments';
 import { useToast } from '@/components/ui/use-toast';
+import { useWorkspaceStore } from '@/lib/store/useWorkspaceStore';
 import {
   Calendar,
   GitBranch,
@@ -27,11 +28,25 @@ export default function ProjectOverviewPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
+  const activeOrgId = useWorkspaceStore((state) => state.activeOrgId);
   const projectId = (params?.id as string) || '';
 
   const { data: project, isLoading: isProjectLoading } = useProjectDetail(projectId);
   const { data: deployments = [], isLoading: isDeploymentsLoading } = useDeploymentsList(projectId);
   const deleteProject = useDeleteProject();
+
+  // Enforce workspace isolation
+  useEffect(() => {
+    if (!isProjectLoading && project) {
+      if (activeOrgId === null) {
+        if (project.organization_id) {
+          router.replace('/dashboard');
+        }
+      } else if (project.organization_id && project.organization_id !== activeOrgId) {
+        router.replace('/projects');
+      }
+    }
+  }, [project, activeOrgId, isProjectLoading, router]);
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 

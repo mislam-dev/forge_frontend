@@ -1,19 +1,36 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TeamMembersManager } from '@/components/teams/TeamMembersManager';
 import { useTeamDetail } from '@/lib/hooks/api/useTeams';
+import { useWorkspaceStore } from '@/lib/store/useWorkspaceStore';
 import { ArrowLeft, Users, ShieldAlert } from 'lucide-react';
 
 export default function TeamMembersStandalonePage() {
   const params = useParams();
+  const router = useRouter();
+  const activeOrgId = useWorkspaceStore((state) => state.activeOrgId);
   const teamId = (params?.id as string) || '';
 
   const { data: team, isLoading, isError } = useTeamDetail(teamId);
+
+  // Enforce workspace isolation
+  useEffect(() => {
+    if (activeOrgId === null) {
+      // Personal workspace does not support teams -> redirect to /dashboard
+      router.replace('/dashboard');
+    } else if (!isLoading && team) {
+      const teamOrgId = team.organization_id || team.org_id;
+      if (teamOrgId && teamOrgId !== activeOrgId) {
+        // Team belongs to another organization -> redirect to parent /teams
+        router.replace('/teams');
+      }
+    }
+  }, [team, activeOrgId, isLoading, router]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">

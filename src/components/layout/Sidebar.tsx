@@ -2,7 +2,7 @@
 
 import React, { useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useWorkspaceStore } from '@/lib/store/useWorkspaceStore';
 import { cn } from '@/lib/utils';
 import {
@@ -44,6 +44,7 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const {
     isSidebarCollapsed,
@@ -57,12 +58,38 @@ export function Sidebar() {
   const { data: orgs = [], isLoading: isOrgsLoading } = useOrganizationsList();
   const { data: userProfile } = useUserProfile();
 
+  const navigateForWorkspaceSwitch = (isPersonalTarget: boolean, targetOrgId?: string) => {
+    if (isPersonalTarget) {
+      // If switching to personal workspace from projects, teams, or organizations -> redirect to /dashboard
+      if (
+        pathname.startsWith('/projects') ||
+        pathname.startsWith('/teams') ||
+        pathname.startsWith('/organizations')
+      ) {
+        router.push('/dashboard');
+      }
+    } else {
+      // Switching to an organization workspace
+      if (pathname.startsWith('/projects/')) {
+        // Inside child project route (/projects/:id, /projects/:id/*, /projects/new) -> redirect to parent /projects
+        router.push('/projects');
+      } else if (pathname.startsWith('/teams/')) {
+        // Inside child team route (/teams/:id/members, /teams/new) -> redirect to parent /teams
+        router.push('/teams');
+      } else if (pathname.startsWith('/organizations/') && targetOrgId) {
+        router.push(`/organizations/${targetOrgId}`);
+      }
+    }
+  };
+
   // Validate activeOrgId against loaded organizations; if stale, reset to personal profile
   useEffect(() => {
     if (!isOrgsLoading && activeOrgId) {
       const orgExists = orgs.some((org) => org.id === activeOrgId);
       if (!orgExists && orgs.length > 0) {
         setPersonalWorkspace();
+        queryClient.invalidateQueries();
+        navigateForWorkspaceSwitch(true);
       }
     }
   }, [isOrgsLoading, activeOrgId, orgs, setPersonalWorkspace]);
@@ -111,6 +138,7 @@ export function Sidebar() {
     if (activeOrgId !== null) {
       setPersonalWorkspace();
       queryClient.invalidateQueries();
+      navigateForWorkspaceSwitch(true);
     }
   };
 
@@ -118,6 +146,7 @@ export function Sidebar() {
     if (activeOrgId !== org.id) {
       setOrganizationWorkspace(org.id, org.name);
       queryClient.invalidateQueries();
+      navigateForWorkspaceSwitch(false, org.id);
     }
   };
 

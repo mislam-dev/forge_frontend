@@ -1,18 +1,30 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { useTeamsList, useDeleteTeam } from '@/lib/hooks/api/useTeams';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { useWorkspaceStore } from '@/lib/store/useWorkspaceStore';
 import { Users, Plus, Trash2, Search, Layers, UserCheck } from 'lucide-react';
 
 export default function GlobalTeamsPage() {
+  const router = useRouter();
   const { toast } = useToast();
-  const { data: teams = [], isLoading } = useTeamsList();
+  const activeOrgId = useWorkspaceStore((state) => state.activeOrgId);
+
+  // Teams are organization-scoped; redirect personal workspace to /dashboard
+  useEffect(() => {
+    if (activeOrgId === null) {
+      router.replace('/dashboard');
+    }
+  }, [activeOrgId, router]);
+
+  const { data: teams = [], isLoading } = useTeamsList(activeOrgId || undefined);
   const deleteTeam = useDeleteTeam();
 
   const [search, setSearch] = useState('');
