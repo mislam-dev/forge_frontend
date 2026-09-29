@@ -25,6 +25,13 @@ interface ProjectHeaderProps {
   projectId: string;
 }
 
+const RUNTIME_LABELS: Record<string, string> = {
+  NodeJs: 'Node.js',
+  Python: 'Python',
+  Go: 'Go',
+  Static: 'Static Site',
+};
+
 export function ProjectHeader({ projectId }: ProjectHeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -85,8 +92,8 @@ export function ProjectHeader({ projectId }: ProjectHeaderProps) {
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
               {project?.name || 'Project'}
             </h1>
-            <Badge variant="outline" className="capitalize text-xs">
-              {project?.runtime || 'Rust'}
+            <Badge variant="outline" className="text-xs">
+              {(project?.runtime && RUNTIME_LABELS[project.runtime]) || project?.runtime || 'Node.js'}
             </Badge>
             {project?.latest_deployment_status && (
               <StatusBadge status={project.latest_deployment_status} />

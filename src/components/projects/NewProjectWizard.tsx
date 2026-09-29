@@ -75,8 +75,8 @@ export function NewProjectWizard({ isModal = false, onCancel }: NewProjectWizard
     defaultValues: {
       name: '',
       description: '',
-      runtime: 'rust',
-      project_type: 'repo',
+      runtime: 'NodeJs',
+      project_type: 'Repo',
     },
   });
 
@@ -150,11 +150,10 @@ export function NewProjectWizard({ isModal = false, onCancel }: NewProjectWizard
   };
 
   const runtimes: { id: ProjectRuntime; label: string; desc: string }[] = [
-    { id: 'rust', label: 'Rust', desc: 'Axum, Actix-web, or Cargo binary' },
-    { id: 'node', label: 'Node.js', desc: 'Next.js, Express, or Fastify' },
-    { id: 'python', label: 'Python', desc: 'FastAPI, Flask, or Django worker' },
-    { id: 'go', label: 'Go', desc: 'Standard net/http or Gin service' },
-    { id: 'docker', label: 'Dockerfile', desc: 'Custom multi-stage container build' },
+    { id: 'NodeJs', label: 'Node.js', desc: 'Next.js, Express, or Fastify' },
+    { id: 'Python', label: 'Python', desc: 'FastAPI, Flask, or Django worker' },
+    { id: 'Go', label: 'Go', desc: 'Standard net/http or Gin service' },
+    { id: 'Static', label: 'Static Site', desc: 'Pre-rendered HTML, Vite, or Astro export' },
   ];
 
   return (
@@ -291,11 +290,10 @@ export function NewProjectWizard({ isModal = false, onCancel }: NewProjectWizard
                           }`}
                         >
                           <div className="mt-0.5">
-                            {r.id === 'rust' && <Layers className="h-4 w-4 text-orange-500" />}
-                            {r.id === 'node' && <Layers className="h-4 w-4 text-emerald-500" />}
-                            {r.id === 'python' && <Layers className="h-4 w-4 text-blue-500" />}
-                            {r.id === 'go' && <Layers className="h-4 w-4 text-cyan-500" />}
-                            {r.id === 'docker' && <Layers className="h-4 w-4 text-purple-500" />}
+                            {r.id === 'NodeJs' && <Layers className="h-4 w-4 text-emerald-500" />}
+                            {r.id === 'Python' && <Layers className="h-4 w-4 text-blue-500" />}
+                            {r.id === 'Go' && <Layers className="h-4 w-4 text-cyan-500" />}
+                            {r.id === 'Static' && <Layers className="h-4 w-4 text-amber-500" />}
                           </div>
                           <div>
                             <p className="font-semibold text-xs text-foreground">{r.label}</p>
@@ -317,9 +315,9 @@ export function NewProjectWizard({ isModal = false, onCancel }: NewProjectWizard
                     <FormLabel>Project Structure *</FormLabel>
                     <div className="grid grid-cols-2 gap-2.5">
                       <div
-                        onClick={() => field.onChange('repo')}
+                        onClick={() => field.onChange('Repo')}
                         className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                          field.value === 'repo'
+                          field.value === 'Repo'
                             ? 'border-primary bg-primary/5 text-foreground ring-1 ring-primary'
                             : 'border-border bg-card hover:bg-muted/40 text-muted-foreground'
                         }`}
@@ -331,16 +329,16 @@ export function NewProjectWizard({ isModal = false, onCancel }: NewProjectWizard
                       </div>
 
                       <div
-                        onClick={() => field.onChange('dockerfile')}
+                        onClick={() => field.onChange('Files')}
                         className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                          field.value === 'dockerfile'
+                          field.value === 'Files'
                             ? 'border-primary bg-primary/5 text-foreground ring-1 ring-primary'
                             : 'border-border bg-card hover:bg-muted/40 text-muted-foreground'
                         }`}
                       >
-                        <p className="font-semibold text-xs text-foreground">Dockerfile / Container</p>
+                        <p className="font-semibold text-xs text-foreground">Archive / Direct Files</p>
                         <p className="text-[11px] text-muted-foreground mt-0.5">
-                          Custom multi-stage Docker build with container registry support.
+                          Direct file upload or static bundle archive deployment.
                         </p>
                       </div>
                     </div>

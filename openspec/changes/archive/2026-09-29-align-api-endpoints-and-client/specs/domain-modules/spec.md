@@ -1,9 +1,6 @@
-# domain-modules Specification
+# Spec Delta: domain-modules
 
-## Purpose
-Provides complete domain feature modules and user interfaces for project lifecycle management, real-time build streaming, secret management, team collaboration, notification feeds, and user account security.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Overview Dashboard Metrics & System Health
 The system SHALL present an overview dashboard displaying aggregate system metrics (total projects, active deployments, system health status, and organization count) and recent deployment activity stream, interacting with `/api/v1/dashboard/user`, `/api/v1/dashboard/org/:org_id`, `/api/v1/dashboard`, and health probes (`/api/v1/health/live`, `/api/v1/health/ready`, `/api/v1/health/deep`).
@@ -15,40 +12,6 @@ The system SHALL present an overview dashboard displaying aggregate system metri
 #### Scenario: System health indicator reflects backend availability
 - **WHEN** the backend health endpoint responds with operational status
 - **THEN** the system SHALL render a green status indicator showing healthy services, or an alert badge when degraded.
-
-### Requirement: Project Listing and Filtering
-The system SHALL display all projects accessible to the active organization with real-time text filtering, runtime framework badges, git repository metadata, and last deployed timestamps, supporting filtering across backend runtime variants (`NodeJs`, `Python`, `Go`, `Static`).
-
-#### Scenario: Filtering projects by keyword
-- **WHEN** a user enters a search query in the project search input
-- **THEN** the system SHALL immediately filter the project list matching the project name or repository URL without full page reload.
-
-#### Scenario: Empty project state
-- **WHEN** no projects exist for the selected organization
-- **THEN** the system SHALL display an informative empty state card prompting the user to create their first project.
-
-#### Scenario: Filtering projects by runtime variant
-- **WHEN** a user selects a runtime filter badge (`NodeJs`, `Python`, `Go`, `Static`)
-- **THEN** the system SHALL filter the project cards matching the selected runtime variant.
-
-### Requirement: Multi-Step Project Creation Wizard
-The system SHALL provide a guided 3-step wizard at `/projects/new` to create a project, configure repository source and branch, and optionally declare initial environment variables, using React Hook Form and Zod schemas with inline error messages and no native browser validation, restricting selectable runtimes to backend-supported variants (`NodeJs`, `Python`, `Go`, `Static`) and project types (`Repo`, `Files`) and serializing them matching the Axum backend Serde enum variants.
-
-#### Scenario: Advancing through wizard steps with validation
-- **WHEN** a user enters a valid project name and runtime and clicks "Next"
-- **THEN** the system SHALL advance to the Git repository configuration step and validate repository URL and default branch before allowing progression to environment variables.
-
-#### Scenario: Validation failure on project wizard step
-- **WHEN** a user submits step 1 or step 2 with missing or invalid fields
-- **THEN** the system SHALL prevent navigation to the next step, suppress native browser validation popups, and display inline field error messages styled with the theme's destructive token.
-
-#### Scenario: Successful project creation
-- **WHEN** a user completes all required wizard fields and submits the form
-- **THEN** the system SHALL invoke the project creation API, display a success toast, and redirect the user to the newly created project overview page.
-
-#### Scenario: Validating and serializing supported runtime variants
-- **WHEN** a user selects a runtime from the wizard card grid (such as Node.js, Python, Go, or Static Site)
-- **THEN** the system SHALL serialize the payload as the expected PascalCase variant (`NodeJs`, `Python`, `Go`, `Static`) and project type (`Repo`, `Files`) without casing discrepancies.
 
 ### Requirement: Project Detail and Repository Settings
 The system SHALL provide project overview details and repository configuration at `/projects/[id]` and `/projects/[id]/repository` allowing users to update repository URL, branch, and Personal Access Token (PAT) with Zod-driven schema validation and inline error messaging, supporting remote git validation, persistent linking, on-demand worker clone, commit inspection, branch switching, and remote branch listing in alignment with `/api/v1/projects/:id/repository/*`.
@@ -145,85 +108,6 @@ The system SHALL provide an interactive build console at `/projects/[id]/deploym
 - **WHEN** a user clicks "Download Logs"
 - **THEN** the browser triggers download of `/api/v1/deployments/:id/logs/download` as a `.log` attachment.
 
-### Requirement: Organizations and Tenant Management
-The system SHALL provide organization views at `/organizations` and `/organizations/[id]` supporting organization listing, tenant creation, member role management (`Owner`, `Admin`, `Member`, `Viewer`), and email invitations, validated with Zod schemas and React Hook Form.
-
-#### Scenario: Creating a new organization
-- **WHEN** a user inputs a valid organization name and submits the creation modal
-- **THEN** the system SHALL create the organization, switch the active workspace context to it, and navigate to the new organization overview.
-
-#### Scenario: Organization creation validation failure
-- **WHEN** a user submits an empty or whitespace-only organization name
-- **THEN** the system SHALL display an inline validation error message beneath the name input without browser native popups.
-
-#### Scenario: Inviting a member to an organization
-- **WHEN** an admin enters an invitee email and selects a role and sends invitation
-- **THEN** the system SHALL dispatch an invitation request and display the pending invitation in the members table.
-
-#### Scenario: Updating an organization member role
-- **WHEN** an administrator selects a new role (`Owner`, `Admin`, `Member`, `Viewer`) for a member in the organization members table
-- **THEN** the system SHALL invoke `PATCH /api/v1/organizations/:id/members/:memberId` with `{ role }`, update the member's role in the table, and display a confirmation toast.
-
-### Requirement: Workspace Navigation & Organization Scope
-The system SHALL eliminate the global "All Organizations" directory page (`/organizations`) and its corresponding breadcrumb back-links, redirecting any requests for `/organizations` to the user's active organization (`/organizations/[id]`).
-
-#### Scenario: Navigating to `/organizations`
-- **WHEN** a user visits `/organizations` directly or through legacy links
-- **THEN** the system SHALL immediately redirect the user to `/organizations/${activeOrgId || 'org-1'}`.
-
-#### Scenario: Viewing organization detail header
-- **WHEN** a user views an organization page (`/organizations/[id]`, `/organizations/[id]/members`, `/organizations/[id]/teams`)
-- **THEN** the header SHALL NOT display an "All Organizations" breadcrumb back button.
-
-### Requirement: Team Creation Parallel & Intercepted Route
-The system SHALL support Next.js parallel and intercepting routing for team creation via route `/teams/new`, rendering within a modal overlay (`@modal/(.)teams/new`) during client-side navigation from the Teams list and as a full standalone page upon direct browser visits.
-
-#### Scenario: Client navigation to create team
-- **WHEN** a user clicks "New Team" on `/teams`
-- **THEN** the URL updates to `/teams/new`, and the team creation form opens inside an intercepted modal dialog without unmounting the underlying teams page.
-
-#### Scenario: Dismissing intercepted team creation modal
-- **WHEN** a user clicks "Cancel", clicks outside, or submits the team creation form in the intercepted modal
-- **THEN** the modal closes and the URL reverts to `/teams` via `router.back()`.
-
-#### Scenario: Standalone direct navigation to team creation
-- **WHEN** a user directly navigates to or hard-refreshes `/teams/new`
-- **THEN** the system renders the standalone team creation page in the dashboard shell without modal dialog wrapping.
-
-### Requirement: Organization Creation Parallel & Intercepted Route
-The system SHALL support Next.js parallel and intercepting routing for organization creation via route `/organizations/new`, rendering within a modal overlay (`@modal/(.)organizations/new`) during client-side navigation from the workspace switcher and as a full standalone page upon direct browser visits.
-
-#### Scenario: Client navigation to create organization
-- **WHEN** a user selects "Create Organization" from the sidebar workspace switcher
-- **THEN** the URL updates to `/organizations/new`, and the organization creation form opens inside an intercepted modal dialog over the active page.
-
-#### Scenario: Standalone direct navigation to organization creation
-- **WHEN** a user directly navigates to or hard-refreshes `/organizations/new`
-- **THEN** the system renders the standalone organization creation page in the dashboard shell.
-
-### Requirement: Global and Organization Teams Management
-The system SHALL provide team management at `/teams` and `/organizations/[id]/teams` allowing users to view teams, create new teams, assign team members with designated roles, inspect team rosters, and remove members from a team, validated with React Hook Form and Zod schemas.
-
-#### Scenario: Creating a team
-- **WHEN** a user fills in team name and description and clicks "Create Team"
-- **THEN** the system SHALL persist the team and display it in the team directory card grid.
-
-#### Scenario: Team creation validation failure
-- **WHEN** a user submits an empty team name in the team creation modal
-- **THEN** the system SHALL show an inline validation message and prevent creation.
-
-#### Scenario: Assigning a member to a team
-- **WHEN** a user opens the team members management dialog, enters a member name or email with a designated role, and submits
-- **THEN** the system SHALL add the member to the team roster, increment the team member count, and display the member in the team members list.
-
-#### Scenario: Member assignment validation failure
-- **WHEN** a user attempts to add a member with an invalid email or blank name
-- **THEN** the system SHALL display inline validation error messages and keep the form open for correction.
-
-#### Scenario: Removing a member from a team
-- **WHEN** a user clicks the remove action for a team member and confirms the action
-- **THEN** the system SHALL remove the member from the team roster and update the team member count.
-
 ### Requirement: In-App Notifications Feed
 The system SHALL provide a notification center at `/notifications` listing user notifications categorized by severity (info, warning, error, success) with read/unread filtering, unread count polling via `GET /api/v1/notifications/unread-count`, single read via `PATCH /api/v1/notifications/:id/read`, mark-all-read via `PATCH /api/v1/notifications/read-all`, dismissal via `DELETE /api/v1/notifications/:id`, and live SSE alerts via `GET /api/v1/notifications/stream`.
 
@@ -234,25 +118,6 @@ The system SHALL provide a notification center at `/notifications` listing user 
 #### Scenario: Live notification pushes
 - **WHEN** an SSE connection to `/api/v1/notifications/stream` receives an incoming alert event
 - **THEN** the system SHALL increment unread counts and display a toast alert in the Topbar.
-
-### Requirement: User Profile and Security Settings
-The system SHALL provide settings interfaces at `/settings` and `/settings/security` allowing users to update their profile info (display name, email, avatar), change passwords, review active sessions, and inspect MFA status, validating all user inputs with Zod schemas.
-
-#### Scenario: Updating profile information
-- **WHEN** a user updates their display name and submits the profile form
-- **THEN** the system SHALL send a PATCH request to `/api/v1/users/me` and update the active user store and topbar display.
-
-#### Scenario: Profile validation failure
-- **WHEN** a user clears required profile fields like first name or supplies an invalid email
-- **THEN** the system SHALL render inline validation errors beneath the invalid fields.
-
-#### Scenario: Changing user password
-- **WHEN** a user supplies their current password and a new compliant password and clicks "Update Password"
-- **THEN** the system SHALL submit the password change request and confirm with a success toast while clearing the form.
-
-#### Scenario: Password validation failure
-- **WHEN** a user submits a new password that is shorter than 8 characters or when the confirmation password does not match
-- **THEN** the system SHALL display inline validation messages beneath the password fields and block the submission.
 
 ### Requirement: Offline Mock Provider and Fallback Simulation
 The system SHALL include an offline mock data provider and SSE log emitter that seamlessly simulates API responses and build log streams according to the OpenAPI 3.0 path conventions and response envelopes when the Axum backend server is offline or when `NEXT_PUBLIC_ENABLE_MOCKS=true`.

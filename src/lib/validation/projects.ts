@@ -7,8 +7,8 @@ export const projectStep1Schema = z.object({
     .max(50, 'Project name cannot exceed 50 characters'),
   slug: z.string().optional(),
   description: z.string().optional(),
-  project_type: z.enum(['repo', 'dockerfile']).default('repo'),
-  runtime: z.enum(['rust', 'node', 'python', 'go', 'docker']).default('rust'),
+  project_type: z.enum(['Repo', 'Files']).default('Repo'),
+  runtime: z.enum(['NodeJs', 'Python', 'Go', 'Static']).default('NodeJs'),
 });
 
 export type ProjectStep1Values = z.infer<typeof projectStep1Schema>;

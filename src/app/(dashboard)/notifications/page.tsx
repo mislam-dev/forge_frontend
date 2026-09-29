@@ -89,7 +89,7 @@ export default function NotificationsPage() {
 
   const isFiltered = severityFilter !== 'all' || categoryFilter !== 'all' || readFilter !== 'all' || searchQuery !== '';
 
-  const getSeverityIcon = (severity: string) => {
+  const getSeverityIcon = (severity?: string) => {
     switch (severity) {
       case 'success':
         return <CheckCircle2 className="h-5 w-5 text-emerald-500" />;

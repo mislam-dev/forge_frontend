@@ -172,11 +172,11 @@ export const mockProjects: ProjectDTO[] = [
     id: 'proj-1',
     name: 'Forge API Gateway',
     slug: 'forge-api-gateway',
-    description: 'High-throughput Axum reverse proxy and OAuth authentication gateway.',
+    description: 'High-throughput Node.js reverse proxy and OAuth authentication gateway.',
     organization_id: 'org-1',
     owner_id: 'user-1',
-    project_type: 'repo',
-    runtime: 'rust',
+    project_type: 'Repo',
+    runtime: 'NodeJs',
     repository_url: 'https://github.com/forge/api-gateway',
     branch: 'main',
     last_deployed_at: '2026-09-25T14:32:00Z',
@@ -191,8 +191,8 @@ export const mockProjects: ProjectDTO[] = [
     description: 'JWT token rotation, argon2 password hashing, and session persistence.',
     organization_id: 'org-1',
     owner_id: 'user-1',
-    project_type: 'repo',
-    runtime: 'rust',
+    project_type: 'Repo',
+    runtime: 'Python',
     repository_url: 'https://github.com/forge/auth-service',
     branch: 'release/v2',
     last_deployed_at: '2026-09-25T12:15:00Z',
@@ -207,8 +207,8 @@ export const mockProjects: ProjectDTO[] = [
     description: 'Stripe webhook receiver and usage metering consumer worker.',
     organization_id: 'org-1',
     owner_id: 'user-1',
-    project_type: 'repo',
-    runtime: 'node',
+    project_type: 'Repo',
+    runtime: 'Go',
     repository_url: 'https://github.com/forge/billing-worker',
     branch: 'main',
     last_deployed_at: '2026-09-24T18:40:00Z',
@@ -223,8 +223,8 @@ export const mockProjects: ProjectDTO[] = [
     description: 'Server-Sent Events fan-out daemon for telemetry and build console logs.',
     organization_id: 'org-1',
     owner_id: 'user-1',
-    project_type: 'dockerfile',
-    runtime: 'go',
+    project_type: 'Files',
+    runtime: 'Static',
     repository_url: 'https://github.com/forge/sse-broker',
     branch: 'master',
     last_deployed_at: '2026-09-23T20:10:00Z',
@@ -522,3 +522,66 @@ export const mockDashboardMetrics: DashboardMetricsDTO = {
     mockDeployments['proj-1'][2],
   ],
 };
+
+export const mockPermissions = [
+  { id: 'perm-1', name: 'Create Project', code: 'project:create', module: 'projects', description: 'Create new project' },
+  { id: 'perm-2', name: 'Delete Project', code: 'project:delete', module: 'projects', description: 'Delete existing project' },
+  { id: 'perm-3', name: 'Trigger Deployment', code: 'deployment:trigger', module: 'deployments', description: 'Deploy to environment' },
+  { id: 'perm-4', name: 'Manage Environment Variables', code: 'env_var:write', module: 'env_vars', description: 'Modify project secrets' },
+  { id: 'perm-5', name: 'Manage Access Control', code: 'access_control:manage', module: 'access_control', description: 'Administer roles and permissions' },
+];
+
+export const mockRoles = [
+  { id: 'role-1', name: 'System Admin', description: 'Full access to all system resources and settings', is_system: true, created_at: '2026-01-01T00:00:00Z', permissions: mockPermissions },
+  { id: 'role-2', name: 'Developer', description: 'Create and deploy projects, manage build logs and repositories', is_system: true, created_at: '2026-01-01T00:00:00Z', permissions: [mockPermissions[0], mockPermissions[2], mockPermissions[3]] },
+  { id: 'role-3', name: 'Viewer', description: 'Read-only access to projects and deployment status', is_system: true, created_at: '2026-01-01T00:00:00Z', permissions: [] },
+];
+
+export const mockGitBranches = ['main', 'develop', 'feat/api-alignment', 'fix/build-streaming'];
+
+export const mockLatestCommits: Record<string, { hash: string; author: string; message: string; timestamp: string }> = {
+  'proj-1': {
+    hash: 'a1b2c3d4e5f6',
+    author: 'Monirul Islam <admin@forge.dev>',
+    message: 'feat: align API transport layer with OpenAPI 3.0 specification',
+    timestamp: '2026-09-26T21:45:00Z',
+  },
+  'proj-2': {
+    hash: 'f9e8d7c6b5a4',
+    author: 'Sarah Connor <sarah@forge.dev>',
+    message: 'fix: optimize streaming log buffer and memory bounds',
+    timestamp: '2026-09-26T20:10:00Z',
+  },
+};
+
+export const mockHistoricalLogs: Record<string, Array<{ line: number; timestamp: string; level: string; text: string }>> = {
+  'dep-1': [
+    { line: 1, timestamp: '2026-09-26T18:30:00Z', level: 'INFO', text: 'Initializing build worker container image...' },
+    { line: 2, timestamp: '2026-09-26T18:30:02Z', level: 'INFO', text: 'Cloning git repository from github.com/forge/core-engine...' },
+    { line: 3, timestamp: '2026-09-26T18:30:05Z', level: 'INFO', text: 'Running cargo build --release...' },
+    { line: 4, timestamp: '2026-09-26T18:30:45Z', level: 'INFO', text: 'Compiling forge-runtime v0.4.2...' },
+    { line: 5, timestamp: '2026-09-26T18:31:10Z', level: 'INFO', text: 'Build completed successfully. Starting application container...' },
+    { line: 6, timestamp: '2026-09-26T18:31:12Z', level: 'INFO', text: 'Health check probe passed on port 8080. Deployment active.' },
+  ],
+};
+
+export const mockHealthLive = {
+  status: 'ok',
+  uptime_seconds: 421500,
+};
+
+export const mockHealthReady = {
+  status: 'ready',
+  database: 'up',
+  rabbitmq: 'up',
+};
+
+export const mockHealthDeep = {
+  status: 'ok',
+  database_pool: { status: 'healthy', latency_ms: 1.2 },
+  rabbitmq: { status: 'healthy', queue_depth: 0 },
+  redis: { status: 'healthy' },
+  loki: { status: 'healthy' },
+  docker: { status: 'healthy' },
+};
+

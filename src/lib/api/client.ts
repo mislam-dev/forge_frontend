@@ -1,9 +1,13 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { resolveMockRequest } from './mock/adapter';
+import { ApiErrorResponse } from './types';
+
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+export const API_V1_PREFIX = '/api/v1';
 
 export const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
+  baseURL: API_BASE_URL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -42,6 +46,19 @@ const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue = [];
 };
 
+export function extractApiErrorMessage(err: unknown): string {
+  if (!err) return 'An unexpected error occurred.';
+  if (typeof err === 'string') return err;
+  const errorObj = err as Partial<ApiErrorResponse> & { message?: string; errors?: Record<string, string[]> };
+  if (errorObj.errors && typeof errorObj.errors === 'object') {
+    const firstField = Object.keys(errorObj.errors)[0];
+    if (firstField && Array.isArray(errorObj.errors[firstField]) && errorObj.errors[firstField].length > 0) {
+      return `${firstField}: ${errorObj.errors[firstField][0]}`;
+    }
+  }
+  return errorObj.message || 'Operation failed.';
+}
+
 apiClient.interceptors.response.use(
   (response) => response.data,
   async (error: AxiosError) => {
@@ -51,7 +68,7 @@ apiClient.interceptors.response.use(
 
     // Graceful offline mock fallback if backend is offline or mocks explicitly enabled
     const isMockEnabled = process.env.NEXT_PUBLIC_ENABLE_MOCKS === 'true';
-    const isNetworkError = !error.response || error.code === 'ERR_NETWORK' || error.message.includes('Network Error');
+    const isNetworkError = !error.response || error.code === 'ERR_NETWORK' || error.message?.includes('Network Error');
 
     if ((isMockEnabled || isNetworkError) && originalRequest) {
       let parsedData: unknown = undefined;
@@ -78,7 +95,7 @@ apiClient.interceptors.response.use(
 
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       if (typeof window === 'undefined') {
-        return Promise.reject(error);
+        return Promise.reject(error.response?.data || error);
       }
 
       if (isRefreshing) {
@@ -104,7 +121,7 @@ apiClient.interceptors.response.use(
         if (window.location.pathname !== '/login') {
           window.location.href = '/login';
         }
-        return Promise.reject(error);
+        return Promise.reject(error.response?.data || error);
       }
 
       try {
@@ -113,17 +130,20 @@ apiClient.interceptors.response.use(
           refresh_token: refreshToken,
         });
 
-        const newAccessToken = data.data.access_token;
-        const newRefreshToken = data.data.refresh_token;
+        // OpenAPI envelope returns { message, data: { access_token, refresh_token } }
+        const newAccessToken = data?.data?.access_token || data?.access_token;
+        const newRefreshToken = data?.data?.refresh_token || data?.refresh_token;
 
-        localStorage.setItem('forge_access_token', newAccessToken);
+        if (newAccessToken) {
+          localStorage.setItem('forge_access_token', newAccessToken);
+        }
         if (newRefreshToken) {
           localStorage.setItem('forge_refresh_token', newRefreshToken);
         }
 
         processQueue(null, newAccessToken);
 
-        if (originalRequest.headers) {
+        if (originalRequest.headers && newAccessToken) {
           originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         }
         return apiClient(originalRequest);
@@ -140,6 +160,13 @@ apiClient.interceptors.response.use(
       }
     }
 
-    return Promise.reject(error.response?.data || error);
+    // Preserve structured OpenAPI error envelope { is_error, code, message, errors }
+    const errorPayload = error.response?.data || {
+      is_error: true,
+      code: error.code || 'UNKNOWN_ERROR',
+      message: error.message || 'Request failed',
+    };
+
+    return Promise.reject(errorPayload);
   }
 );

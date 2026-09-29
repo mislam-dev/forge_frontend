@@ -20,14 +20,27 @@ import {
   Filter,
 } from 'lucide-react';
 
+const RUNTIME_FILTERS: { id: string; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'NodeJs', label: 'Node.js' },
+  { id: 'Python', label: 'Python' },
+  { id: 'Go', label: 'Go' },
+  { id: 'Static', label: 'Static Site' },
+];
+
+const RUNTIME_LABELS: Record<string, string> = {
+  NodeJs: 'Node.js',
+  Python: 'Python',
+  Go: 'Go',
+  Static: 'Static Site',
+};
+
 export default function ProjectsPage() {
   const { activeOrgId } = useWorkspaceStore();
   const { data: projects = [], isLoading } = useProjectsList(activeOrgId || undefined);
 
   const [search, setSearch] = useState('');
   const [runtimeFilter, setRuntimeFilter] = useState('all');
-
-  const runtimes = ['all', 'rust', 'node', 'python', 'go', 'docker'];
 
   const filteredProjects = useMemo(() => {
     return projects.filter((project) => {
@@ -38,7 +51,8 @@ export default function ProjectsPage() {
         (project.repository_url && project.repository_url.toLowerCase().includes(search.toLowerCase()));
 
       const matchesRuntime =
-        runtimeFilter === 'all' || project.runtime.toLowerCase() === runtimeFilter.toLowerCase();
+        runtimeFilter === 'all' ||
+        (project.runtime || project.framework || '').toLowerCase() === runtimeFilter.toLowerCase();
 
       return matchesSearch && matchesRuntime;
     });
@@ -76,15 +90,15 @@ export default function ProjectsPage() {
 
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
           <Filter className="h-4 w-4 text-muted-foreground mr-1 hidden sm:inline-block" />
-          {runtimes.map((rt) => (
+          {RUNTIME_FILTERS.map((rt) => (
             <Button
-              key={rt}
-              variant={runtimeFilter === rt ? 'default' : 'outline'}
+              key={rt.id}
+              variant={runtimeFilter === rt.id ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setRuntimeFilter(rt)}
-              className="capitalize h-8 text-xs"
+              onClick={() => setRuntimeFilter(rt.id)}
+              className="h-8 text-xs"
             >
-              {rt}
+              {rt.label}
             </Button>
           ))}
         </div>
@@ -151,7 +165,7 @@ export default function ProjectsPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary font-bold text-xs uppercase">
-                      {project.runtime.slice(0, 2)}
+                      {(project.runtime || project.framework || 'app').slice(0, 2)}
                     </div>
                     <div className="min-w-0">
                       <Link
@@ -165,8 +179,8 @@ export default function ProjectsPage() {
                       </span>
                     </div>
                   </div>
-                  <Badge variant="outline" className="capitalize text-xs shrink-0">
-                    {project.runtime}
+                  <Badge variant="outline" className="text-xs shrink-0">
+                    {(project.runtime && RUNTIME_LABELS[project.runtime]) || project.runtime || 'Unknown'}
                   </Badge>
                 </div>
 

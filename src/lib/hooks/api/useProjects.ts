@@ -18,17 +18,17 @@ export const projectsKeys = {
 export function useProjectsList(orgId?: string) {
   return useQuery<ProjectDTO[]>({
     queryKey: projectsKeys.list(orgId),
-    queryFn: async () => {
+    queryFn: async (): Promise<ProjectDTO[]> => {
       const params = orgId ? { org_id: orgId } : undefined;
       const res = (await apiClient.get('/api/v1/projects', {
         params,
       })) as unknown as ApiResponse<ProjectDTO[] | PaginatedResponse<ProjectDTO>>;
       
-      if (Array.isArray(res.data)) {
+      if (Array.isArray(res?.data)) {
         return res.data;
       }
-      if (res.data && 'items' in res.data) {
-        return res.data.items;
+      if (res?.data && 'items' in res.data && Array.isArray((res.data as any).items)) {
+        return (res.data as any).items;
       }
       return [];
     },
