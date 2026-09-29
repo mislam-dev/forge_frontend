@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Plus,
 } from 'lucide-react';
+import { useOrganizationsList } from '@/lib/hooks/api/useOrganizations';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -47,13 +48,16 @@ export function Sidebar() {
     setActiveOrgName,
   } = useWorkspaceStore();
 
-  const currentOrgName = activeOrgName || 'Acme Platform';
+  const { data: orgs = [], isLoading: isOrgsLoading } = useOrganizationsList();
 
-  const mockOrgs = [
-    { id: 'org-1', name: 'Acme Platform' },
-    { id: 'org-2', name: 'DevOps Engineers Inc' },
-    { id: 'org-3', name: 'Personal Workspace' },
-  ];
+  React.useEffect(() => {
+    if (orgs.length > 0 && !activeOrgId) {
+      setActiveOrgId(orgs[0].id);
+      setActiveOrgName(orgs[0].name);
+    }
+  }, [orgs, activeOrgId, setActiveOrgId, setActiveOrgName]);
+
+  const currentOrgName = activeOrgName || orgs[0]?.name || 'Workspace';
 
   return (
     <aside
@@ -114,7 +118,7 @@ export function Sidebar() {
                 Switch Organization
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {mockOrgs.map((org) => (
+              {orgs.map((org) => (
                 <DropdownMenuItem
                   key={org.id}
                   onClick={() => {
@@ -127,6 +131,11 @@ export function Sidebar() {
                   <span className="truncate">{org.name}</span>
                 </DropdownMenuItem>
               ))}
+              {orgs.length === 0 && !isOrgsLoading && (
+                <div className="px-2 py-2 text-xs text-muted-foreground">
+                  No organizations found
+                </div>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link

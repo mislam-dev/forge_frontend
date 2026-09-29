@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/shared/StatusBadge';
+import { QueryErrorState } from '@/components/shared/QueryErrorState';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { useDashboardMetrics, useSystemHealth } from '@/lib/hooks/api/useDashboard';
@@ -24,8 +25,19 @@ import {
 
 export default function DashboardPage() {
   const { activeOrgId } = useWorkspaceStore();
-  const { data: metrics, isLoading: isMetricsLoading, refetch, isRefetching } = useDashboardMetrics();
-  const { data: health, isLoading: isHealthLoading } = useSystemHealth();
+  const {
+    data: metrics,
+    isLoading: isMetricsLoading,
+    isError: isMetricsError,
+    error: metricsError,
+    refetch,
+    isRefetching,
+  } = useDashboardMetrics();
+  const {
+    data: health,
+    isLoading: isHealthLoading,
+    isError: isHealthError,
+  } = useSystemHealth();
 
   const metricCards = [
     {
@@ -64,6 +76,11 @@ export default function DashboardPage() {
             </h1>
             {isHealthLoading ? (
               <Skeleton className="h-6 w-24 rounded-full" />
+            ) : isHealthError ? (
+              <Badge variant="outline" className="gap-1.5 border-destructive/30 bg-destructive/10 text-destructive">
+                <AlertCircle className="h-3.5 w-3.5" />
+                Backend Offline
+              </Badge>
             ) : health?.status === 'healthy' ? (
               <Badge variant="outline" className="gap-1.5 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                 <ShieldCheck className="h-3.5 w-3.5" />
@@ -129,7 +146,16 @@ export default function DashboardPage() {
         </Button>
       </div>
 
-      {/* Metric Cards Grid */}
+      {isMetricsError && !metrics ? (
+        <QueryErrorState
+          title="Unable to load dashboard metrics"
+          error={metricsError}
+          onRetry={() => refetch()}
+          isRetrying={isRefetching}
+        />
+      ) : (
+        <>
+          {/* Metric Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {metricCards.map((metric) => {
           const Icon = metric.icon;
@@ -244,6 +270,8 @@ export default function DashboardPage() {
           </table>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

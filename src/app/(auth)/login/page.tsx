@@ -54,11 +54,18 @@ function LoginForm() {
 
       if (response.ok) {
         const json = await response.json();
-        const accessToken = json.data?.access_token || 'mock_access_token';
-        const refreshToken = json.data?.refresh_token || 'mock_refresh_token';
+        const accessToken = json.data?.access_token || json.access_token;
+        const refreshToken = json.data?.refresh_token || json.refresh_token;
+
+        if (!accessToken) {
+          setErrorMessage('Login succeeded but no access token was returned by server.');
+          return;
+        }
 
         localStorage.setItem('forge_access_token', accessToken);
-        localStorage.setItem('forge_refresh_token', refreshToken);
+        if (refreshToken) {
+          localStorage.setItem('forge_refresh_token', refreshToken);
+        }
         document.cookie = `forge_access_token=${encodeURIComponent(accessToken)}; path=/; max-age=86400; SameSite=Lax`;
 
         router.push(redirectTarget);
@@ -69,12 +76,9 @@ function LoginForm() {
         );
       }
     } catch {
-      // In offline / dev mode without backend, provide fallback session
-      const fallbackToken = 'dev_access_token_' + Date.now();
-      localStorage.setItem('forge_access_token', fallbackToken);
-      localStorage.setItem('forge_refresh_token', 'dev_refresh_token');
-      document.cookie = `forge_access_token=${fallbackToken}; path=/; max-age=86400; SameSite=Lax`;
-      router.push(redirectTarget);
+      setErrorMessage(
+        'Unable to connect to authentication server. Please check your network connection and verify the backend is running.'
+      );
     } finally {
       setIsSubmitting(false);
     }

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/shared/StatusBadge';
+import { QueryErrorState } from '@/components/shared/QueryErrorState';
 import { useProjectsList } from '@/lib/hooks/api/useProjects';
 import { useWorkspaceStore } from '@/lib/store/useWorkspaceStore';
 import {
@@ -37,7 +38,14 @@ const RUNTIME_LABELS: Record<string, string> = {
 
 export default function ProjectsPage() {
   const { activeOrgId } = useWorkspaceStore();
-  const { data: projects = [], isLoading } = useProjectsList(activeOrgId || undefined);
+  const {
+    data: projects = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isRefetching,
+  } = useProjectsList(activeOrgId || undefined);
 
   const [search, setSearch] = useState('');
   const [runtimeFilter, setRuntimeFilter] = useState('all');
@@ -105,7 +113,14 @@ export default function ProjectsPage() {
       </div>
 
       {/* Projects Grid */}
-      {isLoading ? (
+      {isError ? (
+        <QueryErrorState
+          title="Unable to load projects"
+          error={error}
+          onRetry={() => refetch()}
+          isRetrying={isRefetching}
+        />
+      ) : isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="rounded-xl border border-border bg-card p-5 space-y-4">

@@ -1,6 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { v4 as uuidv4 } from 'uuid';
-import { resolveMockRequest } from './mock/adapter';
 import { ApiErrorResponse } from './types';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
@@ -65,33 +64,6 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config as (InternalAxiosRequestConfig & {
       _retry?: boolean;
     }) | undefined;
-
-    // Graceful offline mock fallback if backend is offline or mocks explicitly enabled
-    const isMockEnabled = process.env.NEXT_PUBLIC_ENABLE_MOCKS === 'true';
-    const isNetworkError = !error.response || error.code === 'ERR_NETWORK' || error.message?.includes('Network Error');
-
-    if ((isMockEnabled || isNetworkError) && originalRequest) {
-      let parsedData: unknown = undefined;
-      try {
-        if (typeof originalRequest.data === 'string') {
-          parsedData = JSON.parse(originalRequest.data);
-        } else {
-          parsedData = originalRequest.data;
-        }
-      } catch {
-        parsedData = originalRequest.data;
-      }
-
-      const mockRes = resolveMockRequest(
-        originalRequest.method || 'GET',
-        originalRequest.url || '',
-        parsedData
-      );
-
-      if (mockRes) {
-        return mockRes;
-      }
-    }
 
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       if (typeof window === 'undefined') {
@@ -160,12 +132,25 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // Preserve structured OpenAPI error envelope { is_error, code, message, errors }
-    const errorPayload = error.response?.data || {
-      is_error: true,
-      code: error.code || 'UNKNOWN_ERROR',
-      message: error.message || 'Request failed',
-    };
+    // Check if network error (no response, connection refused, DNS failure, timeout)
+    const isNetworkError = !error.response || error.code === 'ERR_NETWORK' || error.message?.includes('Network Error');
+
+    let errorPayload: ApiErrorResponse;
+    if (isNetworkError) {
+      errorPayload = {
+        is_error: true,
+        code: 'ERR_NETWORK',
+        message: 'Unable to connect to server. Please check your network connection and verify the backend is running.',
+      };
+    } else {
+      const responseData = error.response?.data as Partial<ApiErrorResponse> | undefined;
+      errorPayload = {
+        is_error: true,
+        code: responseData?.code || error.code || 'UNKNOWN_ERROR',
+        message: responseData?.message || error.message || 'Request failed',
+        errors: responseData?.errors,
+      };
+    }
 
     return Promise.reject(errorPayload);
   }
