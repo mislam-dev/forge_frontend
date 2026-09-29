@@ -411,13 +411,22 @@ export interface ProjectMemberDTO {
 }
 
 export interface ProjectTeamDTO {
-  id: string;
+  id?: string;
   project_id: string;
   team_id: string;
-  name: string;
-  role: 'developer' | 'viewer' | 'Admin' | 'Member' | 'Viewer' | string;
+  name?: string;
+  role?: 'developer' | 'viewer' | 'Admin' | 'Member' | 'Viewer' | string;
   member_count?: number;
   created_at?: string;
+  assigned_at?: string;
+  team?: {
+    id: string;
+    organization_id?: string;
+    name: string;
+    descriptions?: string | null;
+    created_at?: string;
+    updated_at?: string;
+  };
 }
 
 export interface AssignProjectMemberRequest {
@@ -427,7 +436,7 @@ export interface AssignProjectMemberRequest {
 
 export interface AssignProjectTeamRequest {
   team_id: string;
-  role: 'developer' | 'viewer' | string;
+  role?: 'developer' | 'viewer' | string;
 }
 
 // Legacy unified project access

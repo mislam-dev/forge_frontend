@@ -93,11 +93,15 @@ The system SHALL provide an environment variable editor at `/projects/[id]/env-v
 - **THEN** the system SHALL issue `PUT /api/v1/projects/:id/env-vars/:env_id` or `DELETE /api/v1/projects/:id/env-vars/:env_id` and update the active list.
 
 ### Requirement: Project Access Roles and Team Assignment
-The system SHALL provide workspace-aware access control at `/projects/[id]/access`: when in a personal workspace (`activeOrgId === null`), the system SHALL hide team management features and exclusively allow project administrators to inspect, assign, and revoke individual user collaborators with roles (`admin`, `developer`, `viewer`) using dedicated `/api/v1/projects/:id/members` endpoints; when in an organization workspace (`activeOrgId !== null`), the system SHALL display the team assignment feature and allow project administrators to inspect, assign, and revoke teams with roles (`developer`, `viewer`) via `/api/v1/projects/:id/teams` endpoints alongside direct member management.
+The system SHALL provide workspace-aware access control at `/projects/[id]/access`: when in a personal workspace (`activeOrgId === null`), the system SHALL hide team management features and exclusively allow project administrators to inspect, assign, and revoke individual user collaborators with roles (`admin`, `developer`, `viewer`) using dedicated `/api/v1/projects/:id/members` endpoints; when in an organization workspace (`activeOrgId !== null`), the system SHALL display the team assignment feature and allow project administrators to inspect, assign, and revoke teams via `/api/v1/projects/:id/teams` endpoints alongside direct member management, safely handling assigned team schemas with nested `team` details (`team.name`, `team.id`), `assigned_at` timestamps, and null-safe role display without runtime crashes.
 
 #### Scenario: Assigning team role to project
-- **WHEN** an admin selects an organization team and assigns a role (`viewer` or `developer`) in an organization workspace
-- **THEN** the system SHALL dispatch `POST /api/v1/projects/:id/teams` with `{ team_id, role }` and reflect the assigned team in the project teams list.
+- **WHEN** an admin selects an organization team and submits the assignment modal in an organization workspace
+- **THEN** the system SHALL dispatch `POST /api/v1/projects/:id/teams` with payload containing `{ team_id }` and reflect the assigned team in the project teams list.
+
+#### Scenario: Inspecting assigned teams with backend schema
+- **WHEN** a user visits `/projects/[id]/access` in an organization workspace with assigned teams returned containing `{ project_id, team_id, assigned_at, team: { id, name } }` and no explicit `role` property
+- **THEN** the system SHALL render the assigned teams table without throwing exceptions, displaying the resolved team name (`team.name`), assignment timestamp (`assigned_at`), and a safe fallback badge for access role.
 
 #### Scenario: Validation failure on role assignment
 - **WHEN** an admin submits the assignment modal without selecting a target entity or providing a valid identifier

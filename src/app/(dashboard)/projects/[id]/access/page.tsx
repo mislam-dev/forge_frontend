@@ -173,7 +173,8 @@ export default function ProjectAccessPage() {
   };
 
   // Helper to format role badge variant
-  const getRoleBadgeVariant = (role: string) => {
+  const getRoleBadgeVariant = (role?: string | null) => {
+    if (!role) return 'secondary';
     const lower = role.toLowerCase();
     if (lower === 'admin') return 'default';
     if (lower === 'developer' || lower === 'member') return 'secondary';
@@ -293,50 +294,56 @@ export default function ProjectAccessPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {teams.map((team) => (
-                <tr key={team.id || team.team_id} className="hover:bg-muted/30 transition-colors">
-                  <td className="py-3.5 px-4 font-medium text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-secondary-foreground text-xs font-bold">
-                        <Users2 className="h-3.5 w-3.5" />
+              {teams.map((team, index) => {
+                const teamId = team.team_id || team.team?.id || team.id || `team-${index}`;
+                const teamName = team.team?.name || team.name || team.team_id || 'Assigned Team';
+                const assignedDate = team.assigned_at || team.team?.created_at || team.created_at;
+
+                return (
+                  <tr key={teamId} className="hover:bg-muted/30 transition-colors">
+                    <td className="py-3.5 px-4 font-medium text-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-secondary-foreground text-xs font-bold">
+                          <Users2 className="h-3.5 w-3.5" />
+                        </div>
+                        <span className="font-medium text-foreground">{teamName}</span>
                       </div>
-                      <span className="font-medium text-foreground">{team.name || team.team_id}</span>
-                    </div>
-                  </td>
+                    </td>
 
-                  <td className="py-3.5 px-4">
-                    <Badge variant={getRoleBadgeVariant(team.role)} className="text-xs capitalize">
-                      {team.role}
-                    </Badge>
-                  </td>
+                    <td className="py-3.5 px-4">
+                      <Badge variant={getRoleBadgeVariant(team.role)} className="text-xs capitalize">
+                        {team.role || 'Assigned'}
+                      </Badge>
+                    </td>
 
-                  <td className="py-3.5 px-4 text-xs text-muted-foreground">
-                    {team.member_count !== undefined ? `${team.member_count} members` : 'Team roster'}
-                  </td>
+                    <td className="py-3.5 px-4 text-xs text-muted-foreground">
+                      {team.member_count !== undefined ? `${team.member_count} members` : 'Team roster'}
+                    </td>
 
-                  <td className="py-3.5 px-4 text-xs text-muted-foreground">
-                    {team.created_at ? new Date(team.created_at).toLocaleDateString() : 'Active'}
-                  </td>
+                    <td className="py-3.5 px-4 text-xs text-muted-foreground">
+                      {assignedDate ? new Date(assignedDate).toLocaleDateString() : 'Active'}
+                    </td>
 
-                  <td className="py-3.5 px-4 text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() =>
-                        setPendingRevoke({
-                          id: team.team_id || team.id,
-                          name: team.name || team.team_id,
-                          type: 'team',
-                        })
-                      }
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      title="Remove team"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
+                    <td className="py-3.5 px-4 text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() =>
+                          setPendingRevoke({
+                            id: teamId,
+                            name: teamName,
+                            type: 'team',
+                          })
+                        }
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        title="Remove team"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

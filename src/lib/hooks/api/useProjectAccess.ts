@@ -81,10 +81,9 @@ export function useAssignProjectTeam(projectId: string) {
 
   return useMutation<ProjectTeamDTO, Error, AssignProjectTeamRequest>({
     mutationFn: async (payload) => {
-      const res = (await apiClient.post(
-        `/api/v1/projects/${projectId}/teams`,
-        payload
-      )) as unknown as ApiResponse<ProjectTeamDTO>;
+      const res = (await apiClient.post(`/api/v1/projects/${projectId}/teams`, {
+        team_id: payload.team_id,
+      })) as unknown as ApiResponse<ProjectTeamDTO>;
       return res.data;
     },
     onSuccess: () => {
@@ -146,10 +145,10 @@ export function useProjectAccess(projectId: string) {
               id: t.id || t.team_id,
               project_id: projectId,
               team_id: t.team_id,
-              name: t.name,
+              name: t.team?.name || t.name || t.team_id || 'Assigned Team',
               type: 'team',
-              role: t.role as any,
-              created_at: t.created_at || new Date().toISOString(),
+              role: (t.role || 'Member') as any,
+              created_at: t.assigned_at || t.team?.created_at || t.created_at || new Date().toISOString(),
             });
           });
         }
