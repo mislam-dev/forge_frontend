@@ -51,11 +51,11 @@ The system SHALL provide a guided 3-step wizard at `/projects/new` to create a p
 - **THEN** the system SHALL serialize the payload as the expected PascalCase variant (`NodeJs`, `Python`, `Go`, `Static`) and project type (`Repo`, `Files`) without casing discrepancies.
 
 ### Requirement: Project Detail and Repository Settings
-The system SHALL provide project overview details and repository configuration at `/projects/[id]` and `/projects/[id]/repository` allowing users to update repository URL, branch, and Personal Access Token (PAT) with Zod-driven schema validation and inline error messaging, supporting remote git validation, persistent linking, on-demand worker clone, commit inspection, branch switching, and remote branch listing in alignment with `/api/v1/projects/:id/repository/*`.
+The system SHALL provide project overview details and repository configuration at `/projects/[id]` and `/projects/[id]/repository` allowing users to update repository URL, branch, and Personal Access Token (PAT) with Zod-driven schema validation and inline error messaging, supporting remote git validation, persistent linking, on-demand worker clone, commit inspection, branch switching, and remote branch listing in alignment with `/api/v1/projects/:id/repository/*`, transmitting repository connection payloads conforming to `ConnectProjectRepositoryDTO` (`repository_url`, `access_token`, `default_branch`).
 
 #### Scenario: Updating repository configuration
 - **WHEN** a user updates the repository branch or saves a new PAT secret and clicks "Save Changes"
-- **THEN** the system SHALL submit a PUT or POST request to `/api/v1/projects/:id/repository` and confirm changes with a success notification.
+- **THEN** the system SHALL submit a request to `POST /api/v1/projects/:id/repository` with a JSON payload containing `repository_url`, optional `access_token`, and optional `default_branch`, and confirm changes with a success notification.
 
 #### Scenario: Repository validation error
 - **WHEN** a user submits an empty repository URL or invalid Git URL format
@@ -93,23 +93,27 @@ The system SHALL provide an environment variable editor at `/projects/[id]/env-v
 - **THEN** the system SHALL issue `PUT /api/v1/projects/:id/env-vars/:env_id` or `DELETE /api/v1/projects/:id/env-vars/:env_id` and update the active list.
 
 ### Requirement: Project Access Roles and Team Assignment
-The system SHALL allow project administrators at `/projects/[id]/access` to inspect, assign, and revoke team or user permissions with distinct roles (`admin`, `developer`, `viewer`) using a schema-validated assignment dialog and dedicated `/api/v1/projects/:id/members` and `/api/v1/projects/:id/teams` endpoints.
+The system SHALL provide workspace-aware access control at `/projects/[id]/access`: when in a personal workspace (`activeOrgId === null`), the system SHALL hide team management features and exclusively allow project administrators to inspect, assign, and revoke individual user collaborators with roles (`admin`, `developer`, `viewer`) using dedicated `/api/v1/projects/:id/members` endpoints; when in an organization workspace (`activeOrgId !== null`), the system SHALL display the team assignment feature and allow project administrators to inspect, assign, and revoke teams with roles (`developer`, `viewer`) via `/api/v1/projects/:id/teams` endpoints alongside direct member management.
 
 #### Scenario: Assigning team role to project
-- **WHEN** an admin selects a team and assigns a role (`viewer` or `developer`) and submits
-- **THEN** the system SHALL update project access records and reflect the updated permission in the access table.
+- **WHEN** an admin selects an organization team and assigns a role (`viewer` or `developer`) in an organization workspace
+- **THEN** the system SHALL dispatch `POST /api/v1/projects/:id/teams` with `{ team_id, role }` and reflect the assigned team in the project teams list.
 
 #### Scenario: Validation failure on role assignment
-- **WHEN** an admin submits the assignment modal without selecting a target entity
+- **WHEN** an admin submits the assignment modal without selecting a target entity or providing a valid identifier
 - **THEN** the system SHALL display an inline validation error and block the mutation.
 
 #### Scenario: Assigning a user to a project
-- **WHEN** an admin selects a user and assigns a role (`admin`, `developer`, `viewer`)
+- **WHEN** an admin selects or enters a user identifier and assigns a role (`admin`, `developer`, `viewer`)
 - **THEN** the system SHALL dispatch `POST /api/v1/projects/:id/members` with `{ user_id, role }` and update the member list.
 
 #### Scenario: Removing user or team from project
 - **WHEN** an admin removes an assigned user or team from the project
-- **THEN** the system SHALL dispatch `DELETE /api/v1/projects/:id/members/:user_id` or `DELETE /api/v1/projects/:id/teams/:team_id` and remove the row from view.
+- **THEN** the system SHALL dispatch `DELETE /api/v1/projects/:id/members/:user_id` for user members or `DELETE /api/v1/projects/:id/teams/:team_id` for teams and remove the corresponding record from view.
+
+#### Scenario: Navigating project access in personal workspace
+- **WHEN** a user navigates to `/projects/[id]/access` while personal workspace is active
+- **THEN** the system SHALL render only the direct member collaborator management view and suppress all team assignment options, team lists, and team tabs.
 
 ### Requirement: Deployment History and Status Filtering
 The system SHALL provide a paginated deployment history view at `/projects/[id]/deployments` displaying deployment ID, commit SHA, branch, initiator, trigger type, duration, and status badge with filtering by status (`Queued`, `Running`, `Success`, `Failed`, `Cancelled`), interacting with `/api/v1/projects/:id/deployments` for project history and `/api/v1/deployments` for triggering new deployments, redeploying, or rolling back.

@@ -3,6 +3,7 @@ import { apiClient } from '@/lib/api/client';
 import {
   ApiResponse,
   ProjectRepositoryDTO,
+  ConnectProjectRepositoryDTO,
   SaveRepositoryRequest,
   UpdateRepositoryRequest,
   GitValidationRequest,
@@ -47,11 +48,16 @@ export function useValidateRepository(projectId: string) {
 export function useSaveProjectRepository(projectId: string) {
   const queryClient = useQueryClient();
 
-  return useMutation<ProjectRepositoryDTO, Error, SaveRepositoryRequest>({
+  return useMutation<ProjectRepositoryDTO, Error, ConnectProjectRepositoryDTO>({
     mutationFn: async (payload) => {
+      const body: ConnectProjectRepositoryDTO = {
+        repository_url: payload.repository_url,
+        default_branch: payload.default_branch ?? null,
+        access_token: payload.access_token ?? null,
+      };
       const res = (await apiClient.post(
         `/api/v1/projects/${projectId}/repository`,
-        payload
+        body
       )) as unknown as ApiResponse<ProjectRepositoryDTO>;
       return res.data;
     },
@@ -68,16 +74,21 @@ export function useUpdateProjectRepository(projectId: string) {
 
   return useMutation<ProjectRepositoryDTO, Error, UpdateRepositoryRequest>({
     mutationFn: async (payload) => {
-      const repoUrl = payload.repo_url || payload.repository_url || '';
+      const repositoryUrl = payload.repository_url || '';
       const branch = payload.default_branch || payload.branch || 'main';
-      const authToken = payload.auth_token || payload.pat_token;
+      const accessToken = payload.access_token || payload.pat_token || null;
 
-      // Dispatches POST /api/v1/projects/:id/repository to align with OpenAPI
-      const res = (await apiClient.post(`/api/v1/projects/${projectId}/repository`, {
-        repo_url: repoUrl,
+      const body: ConnectProjectRepositoryDTO = {
+        repository_url: repositoryUrl,
         default_branch: branch,
-        auth_token: authToken,
-      })) as unknown as ApiResponse<ProjectRepositoryDTO>;
+        access_token: accessToken,
+      };
+
+      // Dispatches POST /api/v1/projects/:id/repository conforming to ConnectProjectRepositoryDTO
+      const res = (await apiClient.post(
+        `/api/v1/projects/${projectId}/repository`,
+        body
+      )) as unknown as ApiResponse<ProjectRepositoryDTO>;
       return res.data;
     },
     onSuccess: () => {

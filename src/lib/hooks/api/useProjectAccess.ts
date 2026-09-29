@@ -18,14 +18,14 @@ export const projectAccessKeys = {
 };
 
 // 1. List assigned members: GET /api/v1/projects/:id/members
-export function useProjectMembers(projectId: string) {
+export function useProjectMembers(projectId: string, options?: { enabled?: boolean }) {
   return useQuery<ProjectMemberDTO[]>({
     queryKey: projectAccessKeys.members(projectId),
     queryFn: async () => {
       const res = (await apiClient.get(`/api/v1/projects/${projectId}/members`)) as unknown as ApiResponse<ProjectMemberDTO[]>;
       return res.data || [];
     },
-    enabled: Boolean(projectId),
+    enabled: Boolean(projectId) && (options?.enabled ?? true),
   });
 }
 
@@ -64,14 +64,14 @@ export function useRemoveProjectMember(projectId: string) {
 }
 
 // 4. List assigned teams: GET /api/v1/projects/:id/teams
-export function useProjectTeams(projectId: string) {
+export function useProjectTeams(projectId: string, options?: { enabled?: boolean }) {
   return useQuery<ProjectTeamDTO[]>({
     queryKey: projectAccessKeys.teams(projectId),
     queryFn: async () => {
       const res = (await apiClient.get(`/api/v1/projects/${projectId}/teams`)) as unknown as ApiResponse<ProjectTeamDTO[]>;
       return res.data || [];
     },
-    enabled: Boolean(projectId),
+    enabled: Boolean(projectId) && (options?.enabled ?? true),
   });
 }
 

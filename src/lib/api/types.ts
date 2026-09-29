@@ -328,19 +328,20 @@ export interface ProjectRepositoryDTO {
   updated_at?: string;
 }
 
-export interface SaveRepositoryRequest {
-  repo_url: string;
-  default_branch: string;
-  auth_token?: string;
+export interface ConnectProjectRepositoryDTO {
+  repository_url: string;
+  access_token?: string | null;
+  default_branch?: string | null;
 }
 
+export type SaveRepositoryRequest = ConnectProjectRepositoryDTO;
+
 export interface UpdateRepositoryRequest {
-  repository_url?: string;
-  repo_url?: string;
+  repository_url: string;
+  default_branch?: string | null;
+  access_token?: string | null;
   branch?: string;
-  default_branch?: string;
   pat_token?: string;
-  auth_token?: string;
   auto_deploy?: boolean;
 }
 

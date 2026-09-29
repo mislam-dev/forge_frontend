@@ -46,3 +46,18 @@ export const projectAccessAssignSchema = z.object({
 });
 
 export type ProjectAccessAssignValues = z.infer<typeof projectAccessAssignSchema>;
+
+export const projectMemberAssignSchema = z.object({
+  user_id: z.string().min(1, 'Please enter a user ID or email'),
+  role: z.enum(['admin', 'developer', 'viewer']),
+});
+
+export type ProjectMemberAssignValues = z.infer<typeof projectMemberAssignSchema>;
+
+export const projectTeamAssignSchema = z.object({
+  team_id: z.string().min(1, 'Please select a team'),
+  role: z.enum(['developer', 'viewer']),
+});
+
+export type ProjectTeamAssignValues = z.infer<typeof projectTeamAssignSchema>;
+

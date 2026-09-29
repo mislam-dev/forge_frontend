@@ -103,6 +103,8 @@ export default function ProjectRepositorySettingsPage() {
     try {
       await updateRepo.mutateAsync({
         repository_url: values.repository_url.trim(),
+        default_branch: values.branch.trim(),
+        access_token: values.pat_token?.trim() || undefined,
         branch: values.branch.trim(),
         pat_token: values.pat_token?.trim() || undefined,
         auto_deploy: values.auto_deploy,

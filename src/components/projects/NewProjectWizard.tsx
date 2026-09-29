@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { useCreateProject } from '@/lib/hooks/api/useProjects';
 import { useWorkspaceStore } from '@/lib/store/useWorkspaceStore';
-import { ProjectRuntime, ProjectType, ProjectEnvVarItemDTO, ProjectEnvironment } from '@/lib/api/types';
+import { ProjectRuntime, ProjectType, ProjectEnvVarItemDTO, ProjectEnvironment, ConnectProjectRepositoryDTO } from '@/lib/api/types';
 import { apiClient } from '@/lib/api/client';
 import {
   projectStep1Schema,
@@ -145,15 +145,12 @@ export function NewProjectWizard({ isModal = false, onCancel, onSuccess }: NewPr
       if (step2.repository_url.trim()) {
         try {
           setSubmittingStatus('Saving repository configuration...');
-          await apiClient.post(`/api/v1/projects/${created.id}/repository`, {
-            repo_url: step2.repository_url.trim(),
+          const repoPayload: ConnectProjectRepositoryDTO = {
             repository_url: step2.repository_url.trim(),
             default_branch: step2.branch.trim() || 'main',
-            branch: step2.branch.trim() || 'main',
-            auth_token: step2.pat_token?.trim() || undefined,
-            access_token: step2.pat_token?.trim() || undefined,
-            auth_type: step2.pat_token?.trim() ? 'pat' : 'public',
-          });
+            access_token: step2.pat_token?.trim() || null,
+          };
+          await apiClient.post(`/api/v1/projects/${created.id}/repository`, repoPayload);
         } catch (repoErr: any) {
           console.error('Failed to link repository configuration:', repoErr);
           toast({
