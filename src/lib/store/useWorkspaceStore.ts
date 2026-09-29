@@ -11,8 +11,10 @@ export interface WorkspaceState {
   activeOrgId: string | null;
   activeOrgName: string | null;
   isSidebarCollapsed: boolean;
-  setActiveOrgId: (id: string) => void;
-  setActiveOrgName: (name: string) => void;
+  setActiveOrgId: (id: string | null) => void;
+  setActiveOrgName: (name: string | null) => void;
+  setPersonalWorkspace: () => void;
+  setOrganizationWorkspace: (id: string, name: string) => void;
   toggleSidebar: () => void;
 }
 
@@ -22,8 +24,10 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       activeOrgId: null,
       activeOrgName: null,
       isSidebarCollapsed: false,
-      setActiveOrgId: (id: string) => set({ activeOrgId: id }),
-      setActiveOrgName: (name: string) => set({ activeOrgName: name }),
+      setActiveOrgId: (id: string | null) => set({ activeOrgId: id }),
+      setActiveOrgName: (name: string | null) => set({ activeOrgName: name }),
+      setPersonalWorkspace: () => set({ activeOrgId: null, activeOrgName: null }),
+      setOrganizationWorkspace: (id: string, name: string) => set({ activeOrgId: id, activeOrgName: name }),
       toggleSidebar: () =>
         set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
     }),

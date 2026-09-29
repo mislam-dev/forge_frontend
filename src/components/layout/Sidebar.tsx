@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useWorkspaceStore } from '@/lib/store/useWorkspaceStore';
@@ -17,8 +17,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
+  User,
+  Check,
 } from 'lucide-react';
 import { useOrganizationsList } from '@/lib/hooks/api/useOrganizations';
+import { useUserProfile } from '@/lib/hooks/api/useUserProfile';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -28,6 +32,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { OrganizationDTO } from '@/lib/api/types';
 
 const navItems = [
   { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
@@ -39,25 +44,75 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const queryClient = useQueryClient();
   const {
     isSidebarCollapsed,
     toggleSidebar,
     activeOrgId,
     activeOrgName,
-    setActiveOrgId,
-    setActiveOrgName,
+    setOrganizationWorkspace,
+    setPersonalWorkspace,
   } = useWorkspaceStore();
 
   const { data: orgs = [], isLoading: isOrgsLoading } = useOrganizationsList();
+  const { data: userProfile } = useUserProfile();
 
-  React.useEffect(() => {
-    if (orgs.length > 0 && !activeOrgId) {
-      setActiveOrgId(orgs[0].id);
-      setActiveOrgName(orgs[0].name);
+  // Validate activeOrgId against loaded organizations; if stale, reset to personal profile
+  useEffect(() => {
+    if (!isOrgsLoading && activeOrgId) {
+      const orgExists = orgs.some((org) => org.id === activeOrgId);
+      if (!orgExists && orgs.length > 0) {
+        setPersonalWorkspace();
+      }
     }
-  }, [orgs, activeOrgId, setActiveOrgId, setActiveOrgName]);
+  }, [isOrgsLoading, activeOrgId, orgs, setPersonalWorkspace]);
 
-  const currentOrgName = activeOrgName || orgs[0]?.name || 'Workspace';
+  // Compute personal user display name
+  const personalDisplayName = useMemo(() => {
+    if (userProfile?.first_name || userProfile?.last_name) {
+      return [userProfile.first_name, userProfile.last_name].filter(Boolean).join(' ');
+    }
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('forge_user_profile');
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed.name) return parsed.name;
+        } catch {}
+      }
+    }
+    return 'Personal Profile';
+  }, [userProfile]);
+
+  const personalSubtitle = useMemo(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('forge_user_profile');
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed.email) return parsed.email;
+        } catch {}
+      }
+    }
+    return 'Personal Account';
+  }, []);
+
+  const isPersonal = !activeOrgId;
+  const currentOrgName = activeOrgName || orgs.find((o) => o.id === activeOrgId)?.name || 'Organization';
+
+  const handleSelectPersonal = () => {
+    if (activeOrgId !== null) {
+      setPersonalWorkspace();
+      queryClient.invalidateQueries();
+    }
+  };
+
+  const handleSelectOrg = (org: OrganizationDTO) => {
+    if (activeOrgId !== org.id) {
+      setOrganizationWorkspace(org.id, org.name);
+      queryClient.invalidateQueries();
+    }
+  };
 
   return (
     <aside
@@ -88,67 +143,109 @@ export function Sidebar() {
 
       {/* Tenant / Organization Switcher */}
       <div className="p-3 border-b border-border">
-        {isSidebarCollapsed ? (
-          <div
-            className="flex h-10 w-10 mx-auto items-center justify-center rounded-lg bg-muted text-xs font-bold text-foreground border border-border"
-            title={currentOrgName}
-          >
-            {currentOrgName.slice(0, 2).toUpperCase()}
-          </div>
-        ) : (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            {isSidebarCollapsed ? (
+              <Button
+                variant="ghost"
+                className="flex h-10 w-10 p-0 mx-auto items-center justify-center rounded-lg bg-muted text-xs font-bold text-foreground border border-border hover:bg-muted/80"
+                title={isPersonal ? `Personal: ${personalDisplayName}` : `Org: ${currentOrgName}`}
+              >
+                {isPersonal ? (
+                  <User className="h-4 w-4 text-primary" />
+                ) : (
+                  currentOrgName.slice(0, 2).toUpperCase()
+                )}
+              </Button>
+            ) : (
               <Button
                 variant="outline"
                 className="w-full justify-between h-10 px-3 bg-muted/40 border-border text-left font-normal"
               >
                 <div className="flex items-center gap-2 truncate">
                   <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-primary/20 text-primary text-xs font-bold">
-                    {currentOrgName.slice(0, 1).toUpperCase()}
+                    {isPersonal ? (
+                      <User className="h-3.5 w-3.5" />
+                    ) : (
+                      currentOrgName.slice(0, 1).toUpperCase()
+                    )}
                   </div>
-                  <span className="text-xs font-semibold truncate">
-                    {currentOrgName}
-                  </span>
+                  <div className="flex flex-col truncate leading-tight text-left">
+                    <span className="text-xs font-semibold truncate">
+                      {isPersonal ? personalDisplayName : currentOrgName}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground truncate">
+                      {isPersonal ? 'Personal Profile' : 'Organization'}
+                    </span>
+                  </div>
                 </div>
-                <ChevronDown className="h-3.5 w-3.5 opacity-60 shrink-0" />
+                <ChevronDown className="h-3.5 w-3.5 opacity-60 shrink-0 ml-1" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="start">
-              <DropdownMenuLabel className="text-xs text-muted-foreground">
-                Switch Organization
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {orgs.map((org) => (
+            )}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-60" align="start">
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              Personal Account
+            </DropdownMenuLabel>
+            <DropdownMenuItem
+              onClick={handleSelectPersonal}
+              className={cn(
+                'cursor-pointer flex items-center justify-between',
+                isPersonal && 'bg-accent font-medium'
+              )}
+            >
+              <div className="flex items-center gap-2 truncate">
+                <User className="h-4 w-4 shrink-0 text-primary" />
+                <div className="flex flex-col truncate">
+                  <span className="text-xs font-medium truncate">{personalDisplayName}</span>
+                  <span className="text-[10px] text-muted-foreground truncate">{personalSubtitle}</span>
+                </div>
+              </div>
+              {isPersonal && <Check className="h-4 w-4 text-primary shrink-0" />}
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              Organizations
+            </DropdownMenuLabel>
+            {orgs.map((org) => {
+              const isSelected = activeOrgId === org.id;
+              return (
                 <DropdownMenuItem
                   key={org.id}
-                  onClick={() => {
-                    setActiveOrgId(org.id);
-                    setActiveOrgName(org.name);
-                  }}
-                  className="cursor-pointer"
+                  onClick={() => handleSelectOrg(org)}
+                  className={cn(
+                    'cursor-pointer flex items-center justify-between',
+                    isSelected && 'bg-accent font-medium'
+                  )}
                 >
-                  <Building2 className="mr-2 h-4 w-4" />
-                  <span className="truncate">{org.name}</span>
+                  <div className="flex items-center gap-2 truncate">
+                    <Building2 className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="truncate text-xs">{org.name}</span>
+                  </div>
+                  {isSelected && <Check className="h-4 w-4 text-primary shrink-0" />}
                 </DropdownMenuItem>
-              ))}
-              {orgs.length === 0 && !isOrgsLoading && (
-                <div className="px-2 py-2 text-xs text-muted-foreground">
-                  No organizations found
-                </div>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link
-                  href="/organizations/new"
-                  className="flex items-center cursor-pointer text-primary"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  <span>Create Organization</span>
-                </Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+              );
+            })}
+            {orgs.length === 0 && !isOrgsLoading && (
+              <div className="px-2 py-1.5 text-xs text-muted-foreground italic">
+                No organizations found
+              </div>
+            )}
+
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link
+                href="/organizations/new"
+                className="flex items-center cursor-pointer text-primary text-xs"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                <span>Create Organization</span>
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Navigation Links */}

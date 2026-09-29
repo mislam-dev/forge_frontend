@@ -1,6 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { ApiErrorResponse } from './types';
+import { useWorkspaceStore } from '@/lib/store/useWorkspaceStore';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 export const API_V1_PREFIX = '/api/v1';
@@ -13,12 +14,19 @@ export const apiClient = axios.create({
   },
 });
 
-// Request Interceptor: Attach Authorization Bearer token & Request ID
+// Request Interceptor: Attach Authorization Bearer token, Request ID & Organization-ID
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('forge_access_token');
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    const activeOrgId = useWorkspaceStore.getState().activeOrgId;
+    if (activeOrgId && config.headers) {
+      config.headers['Organization-ID'] = activeOrgId;
+    } else if (config.headers) {
+      delete config.headers['Organization-ID'];
     }
   }
   if (config.headers) {
