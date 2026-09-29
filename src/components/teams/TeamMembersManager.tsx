@@ -17,7 +17,7 @@ import {
 } from '@/lib/hooks/api/useTeams';
 import { useOrgMembers } from '@/lib/hooks/api/useOrganizations';
 import { useWorkspaceStore } from '@/lib/store/useWorkspaceStore';
-import { OrgMemberDTO } from '@/lib/api/types';
+import { OrgMemberDTO, TeamRole } from '@/lib/api/types';
 import { addTeamMemberSchema, AddTeamMemberValues } from '@/lib/validation/teams';
 import {
   Form,
@@ -37,13 +37,10 @@ export interface TeamMembersManagerProps {
   className?: string;
 }
 
-const SUPPORTED_ROLES = [
-  { value: 'admin', label: 'Admin' },
-  { value: 'lead', label: 'Lead' },
-  { value: 'maintainer', label: 'Maintainer' },
-  { value: 'member', label: 'Member' },
-  { value: 'developer', label: 'Developer' },
-  { value: 'viewer', label: 'Viewer' },
+const SUPPORTED_ROLES: { value: TeamRole; label: string; description: string }[] = [
+  { value: 'viewer', label: 'Viewer', description: 'Read-only observability' },
+  { value: 'developer', label: 'Developer', description: 'Build & pipeline access' },
+  { value: 'admin', label: 'Admin', description: 'Full administrative squad privileges' },
 ];
 
 export function TeamMembersManager({
@@ -106,14 +103,14 @@ export function TeamMembersManager({
     resolver: zodResolver(addTeamMemberSchema),
     defaultValues: {
       user_id: '',
-      role: 'member',
+      role: 'developer',
     },
   });
 
   const handleAddMember = async (values: AddTeamMemberValues) => {
     try {
       const trimmedUserId = values.user_id.trim();
-      const trimmedRole = values.role.trim().toLowerCase();
+      const trimmedRole = values.role.trim().toLowerCase() as TeamRole;
 
       await addMemberMutation.mutateAsync({
         user_id: trimmedUserId,
@@ -130,7 +127,7 @@ export function TeamMembersManager({
 
       form.reset({
         user_id: '',
-        role: 'member',
+        role: 'developer',
       });
       setShowAddForm(false);
     } catch (err: any) {
@@ -281,15 +278,14 @@ export function TeamMembersManager({
                     <FormControl>
                       <select
                         value={field.value}
-                        onChange={(e) => field.onChange(e.target.value)}
+                        onChange={(e) => field.onChange(e.target.value as TeamRole)}
                         className="h-8 w-full rounded-md border border-input bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                       >
-                        <option value="member">Member (Deployments & environment access)</option>
-                        <option value="admin">Admin (Full administrative squad privileges)</option>
-                        <option value="lead">Lead (Team lead & architecture ownership)</option>
-                        <option value="maintainer">Maintainer (Service updates & configurations)</option>
-                        <option value="developer">Developer (Build & pipeline access)</option>
-                        <option value="viewer">Viewer (Read-only observability)</option>
+                        {SUPPORTED_ROLES.map((role) => (
+                          <option key={role.value} value={role.value}>
+                            {role.label} ({role.description})
+                          </option>
+                        ))}
                       </select>
                     </FormControl>
                     <FormMessage />
@@ -364,7 +360,7 @@ export function TeamMembersManager({
 
             const displayEmail = member.email || orgMember?.email;
             const avatarInitials = (displayName || member.user_id || 'TM').slice(0, 2).toUpperCase();
-            const normalizedRole = (member.role || 'member').toLowerCase();
+            const normalizedRole = (member.role || 'developer').toLowerCase();
 
             return (
               <div

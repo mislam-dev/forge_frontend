@@ -234,27 +234,31 @@ export interface CreateTeamDTO {
 
 export type CreateTeamRequest = CreateTeamDTO;
 
+export type TeamRole = 'viewer' | 'developer' | 'admin';
+export const TEAM_ROLES: TeamRole[] = ['viewer', 'developer', 'admin'];
+
 export interface TeamMemberDTO {
   id?: string;
   team_id: string;
   user_id: string;
   name?: string;
   email?: string;
-  role: string;
+  role: TeamRole | string;
   team_role?: string;
   joined_at: string;
 }
 
 export interface AddTeamMemberDTO {
   user_id: string;
-  role: string;
+  role: TeamRole | string;
 }
 
 export type AddTeamMemberRequest = AddTeamMemberDTO;
 
 export interface UpdateTeamMemberRoleRequest {
-  role: 'Lead' | 'Maintainer' | 'Member' | 'Viewer' | string;
+  role: TeamRole | string;
 }
+
 
 // ==========================================
 // 5. Projects & Repository Sub-Module DTOs

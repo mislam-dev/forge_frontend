@@ -28,6 +28,7 @@ export default function ProjectOverviewPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
+  const hasHydrated = useWorkspaceStore((state) => state.hasHydrated);
   const activeOrgId = useWorkspaceStore((state) => state.activeOrgId);
   const projectId = (params?.id as string) || '';
 
@@ -37,16 +38,16 @@ export default function ProjectOverviewPage() {
 
   // Enforce workspace isolation
   useEffect(() => {
-    if (!isProjectLoading && project) {
-      if (activeOrgId === null) {
-        if (project.organization_id) {
-          router.replace('/dashboard');
-        }
-      } else if (project.organization_id && project.organization_id !== activeOrgId) {
-        router.replace('/projects');
+    if (!hasHydrated || isProjectLoading || !project) return;
+
+    if (activeOrgId === null) {
+      if (project.organization_id) {
+        router.replace('/dashboard');
       }
+    } else if (project.organization_id && project.organization_id !== activeOrgId) {
+      router.replace('/projects');
     }
-  }, [project, activeOrgId, isProjectLoading, router]);
+  }, [hasHydrated, project, activeOrgId, isProjectLoading, router]);
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 

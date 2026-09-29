@@ -173,7 +173,7 @@ The system SHALL provide organization views at `/organizations` and `/organizati
 - **THEN** the system SHALL invoke `PATCH /api/v1/organizations/:id/members/:memberId` with `{ role }`, update the member's role in the table, and display a confirmation toast.
 
 ### Requirement: Workspace Navigation & Organization Scope
-The system SHALL eliminate the global "All Organizations" directory page (`/organizations`) and its corresponding breadcrumb back-links, redirecting any requests for `/organizations` to the user's active organization (`/organizations/[id]`).
+The system SHALL eliminate the global "All Organizations" directory page (`/organizations`) and its corresponding breadcrumb back-links, redirecting any requests for `/organizations` to the user's active organization (`/organizations/[id]`), and SHALL enforce workspace route isolation by redirecting to `/dashboard` when personal workspace is activated, and redirecting child project and team routes to their respective parent directories when organization workspaces switch or do not match; during page reloads or initial page loads, workspace route isolation evaluation SHALL be deferred until application store hydration and entity data loading are complete.
 
 #### Scenario: Navigating to `/organizations`
 - **WHEN** a user visits `/organizations` directly or through legacy links
@@ -182,6 +182,26 @@ The system SHALL eliminate the global "All Organizations" directory page (`/orga
 #### Scenario: Viewing organization detail header
 - **WHEN** a user views an organization page (`/organizations/[id]`, `/organizations/[id]/members`, `/organizations/[id]/teams`)
 - **THEN** the header SHALL NOT display an "All Organizations" breadcrumb back button.
+
+#### Scenario: Reloading a team member view or scoped page
+- **WHEN** a user reloads or directly visits a team member view (`/teams/[id]/members`), teams directory (`/teams`), or project child route while in an organization workspace
+- **THEN** the system SHALL NOT immediately redirect to `/dashboard`, SHALL display a loading skeleton while store hydration and resource queries resolve, and SHALL retain the user on the requested view once the active organization matches the entity's organization.
+
+#### Scenario: Switching workspace while inside a project child route
+- **WHEN** a user switches to another organization workspace while currently viewing a project child route (`/projects/[id]`, `/projects/[id]/*`, or `/projects/new`)
+- **THEN** the system SHALL redirect the user to the parent route `/projects`.
+
+#### Scenario: Switching workspace while inside a team child route
+- **WHEN** a user switches to another organization workspace while currently viewing a team child route (`/teams/[id]/*` or `/teams/new`)
+- **THEN** the system SHALL redirect the user to the parent route `/teams`.
+
+#### Scenario: Switching to personal workspace while inside projects or teams
+- **WHEN** a user switches to personal profile workspace while currently on any project route (`/projects`, `/projects/[id]/*`), team route (`/teams`, `/teams/[id]/*`), or organization route
+- **THEN** the system SHALL redirect the user to `/dashboard`.
+
+#### Scenario: Accessing project or team from mismatched workspace after load
+- **WHEN** a user navigates to or loads a project or team whose organization identifier does not match the active workspace context after store hydration and queries complete
+- **THEN** the system SHALL enforce isolation and redirect the user to `/dashboard` (if personal workspace is active) or the parent route (`/projects` for projects, `/teams` for teams).
 
 ### Requirement: Team Creation Parallel & Intercepted Route
 The system SHALL support Next.js parallel and intercepting routing for team creation via route `/teams/new`, rendering within a modal overlay (`@modal/(.)teams/new`) during client-side navigation from the Teams list and as a full standalone page upon direct browser visits.
@@ -210,7 +230,7 @@ The system SHALL support Next.js parallel and intercepting routing for organizat
 - **THEN** the system renders the standalone organization creation page in the dashboard shell.
 
 ### Requirement: Global and Organization Teams Management
-The system SHALL provide team management at `/teams` and `/organizations/[id]/teams` allowing users to view teams, create new teams, assign team members with designated roles, inspect team rosters safely handling minimal backend member schemas (`team_id`, `user_id`, `role`, `joined_at`), and remove members from a team, validated with React Hook Form and Zod schemas.
+The system SHALL provide team management at `/teams` and `/organizations/[id]/teams` allowing users to view teams, create new teams, assign team members with designated roles strictly restricted to backend `TeamRole` enum variants (`viewer`, `developer`, `admin`), inspect team rosters safely handling backend member schemas (`team_id`, `user_id`, `role`, `joined_at`), update member roles, and remove members from a team, validated with React Hook Form and Zod schemas.
 
 #### Scenario: Creating a team
 - **WHEN** a user fills in team name and description and clicks "Create Team"
@@ -222,11 +242,15 @@ The system SHALL provide team management at `/teams` and `/organizations/[id]/te
 
 #### Scenario: Inspecting team members roster with backend schema
 - **WHEN** a user opens the team members dialog for a team whose members are returned with `{ team_id, user_id, role, joined_at }`
-- **THEN** the system SHALL render the members list without throwing exceptions, safely generating fallback avatar initials, displaying user identifiers or resolved organization member details, and displaying normalized role badges.
+- **THEN** the system SHALL render the members list without throwing exceptions, safely generating fallback avatar initials, displaying user identifiers or resolved organization member details, and displaying normalized role badges (`viewer`, `developer`, `admin`).
 
 #### Scenario: Assigning a member to a team
-- **WHEN** a user opens the team members management dialog, enters a member name or email with a designated role, and submits
-- **THEN** the system SHALL add the member to the team roster, increment the team member count, and display the member in the team members list.
+- **WHEN** a user opens the team members management dialog, selects or enters a member identifier with a designated role (`viewer`, `developer`, `admin`), and submits
+- **THEN** the system SHALL dispatch `POST /api/v1/teams/:teamId/members` with the chosen role, add the member to the team roster, and update the team member count.
+
+#### Scenario: Updating a team member role
+- **WHEN** an authorized user selects a new role (`viewer`, `developer`, `admin`) for an existing member from the roster role dropdown
+- **THEN** the system SHALL dispatch `PATCH /api/v1/teams/:teamId/members/:userId` with `{ role }` and update the member's displayed role.
 
 #### Scenario: Member assignment validation failure
 - **WHEN** a user attempts to add a member with an invalid email or blank name

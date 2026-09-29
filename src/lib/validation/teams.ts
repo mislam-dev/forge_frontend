@@ -15,9 +15,9 @@ export const addTeamMemberSchema = z.object({
     .string()
     .min(1, 'User selection or ID is required')
     .uuid('Must be a valid user UUID'),
-  role: z
-    .string()
-    .min(1, 'Role cannot be empty'),
+  role: z.enum(['viewer', 'developer', 'admin'], {
+    message: 'Role must be viewer, developer, or admin',
+  }),
 });
 
 export type AddTeamMemberValues = z.infer<typeof addTeamMemberSchema>;

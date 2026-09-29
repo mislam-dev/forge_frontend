@@ -15,14 +15,16 @@ import { Users, Plus, Trash2, Search, Layers, UserCheck } from 'lucide-react';
 export default function GlobalTeamsPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const hasHydrated = useWorkspaceStore((state) => state.hasHydrated);
   const activeOrgId = useWorkspaceStore((state) => state.activeOrgId);
 
   // Teams are organization-scoped; redirect personal workspace to /dashboard
   useEffect(() => {
+    if (!hasHydrated) return;
     if (activeOrgId === null) {
       router.replace('/dashboard');
     }
-  }, [activeOrgId, router]);
+  }, [hasHydrated, activeOrgId, router]);
 
   const { data: teams = [], isLoading } = useTeamsList(activeOrgId || undefined);
   const deleteTeam = useDeleteTeam();
@@ -85,7 +87,7 @@ export default function GlobalTeamsPage() {
       </div>
 
       {/* Teams Grid */}
-      {isLoading ? (
+      {isLoading || !hasHydrated ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="rounded-xl border border-border bg-card p-5 space-y-4">

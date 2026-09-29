@@ -37,24 +37,25 @@ export function ProjectHeader({ projectId }: ProjectHeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { toast } = useToast();
+  const hasHydrated = useWorkspaceStore((state) => state.hasHydrated);
   const activeOrgId = useWorkspaceStore((state) => state.activeOrgId);
   const { data: project, isLoading } = useProjectDetail(projectId);
   const triggerDeploy = useTriggerDeployment(projectId);
 
   // Enforce workspace isolation
   useEffect(() => {
-    if (!isLoading && project) {
-      if (activeOrgId === null) {
-        // If in personal workspace and project is organization-scoped, redirect to /dashboard
-        if (project.organization_id) {
-          router.replace('/dashboard');
-        }
-      } else if (project.organization_id && project.organization_id !== activeOrgId) {
-        // If in an organization workspace and project belongs to another organization, redirect to parent /projects
-        router.replace('/projects');
+    if (!hasHydrated || isLoading || !project) return;
+
+    if (activeOrgId === null) {
+      // If in personal workspace and project is organization-scoped, redirect to /dashboard
+      if (project.organization_id) {
+        router.replace('/dashboard');
       }
+    } else if (project.organization_id && project.organization_id !== activeOrgId) {
+      // If in an organization workspace and project belongs to another organization, redirect to parent /projects
+      router.replace('/projects');
     }
-  }, [project, activeOrgId, isLoading, router]);
+  }, [hasHydrated, project, activeOrgId, isLoading, router]);
 
   const navLinks = [
     { label: 'Overview', href: `/projects/${projectId}`, icon: Layers, exact: true },

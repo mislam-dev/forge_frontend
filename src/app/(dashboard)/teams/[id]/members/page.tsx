@@ -13,6 +13,7 @@ import { ArrowLeft, Users, ShieldAlert } from 'lucide-react';
 export default function TeamMembersStandalonePage() {
   const params = useParams();
   const router = useRouter();
+  const hasHydrated = useWorkspaceStore((state) => state.hasHydrated);
   const activeOrgId = useWorkspaceStore((state) => state.activeOrgId);
   const teamId = (params?.id as string) || '';
 
@@ -20,17 +21,19 @@ export default function TeamMembersStandalonePage() {
 
   // Enforce workspace isolation
   useEffect(() => {
+    if (!hasHydrated || isLoading) return;
+
     if (activeOrgId === null) {
       // Personal workspace does not support teams -> redirect to /dashboard
       router.replace('/dashboard');
-    } else if (!isLoading && team) {
+    } else if (team) {
       const teamOrgId = team.organization_id || team.org_id;
       if (teamOrgId && teamOrgId !== activeOrgId) {
         // Team belongs to another organization -> redirect to parent /teams
         router.replace('/teams');
       }
     }
-  }, [team, activeOrgId, isLoading, router]);
+  }, [hasHydrated, team, activeOrgId, isLoading, router]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -48,7 +51,7 @@ export default function TeamMembersStandalonePage() {
         </Button>
       </div>
 
-      {isLoading ? (
+      {isLoading || !hasHydrated ? (
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
           <div className="flex items-center gap-3">
             <Skeleton className="h-10 w-10 rounded-xl" />
