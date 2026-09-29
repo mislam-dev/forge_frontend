@@ -6,6 +6,7 @@ import {
   CreateTeamDTO,
   CreateTeamRequest,
   TeamMemberDTO,
+  AddTeamMemberDTO,
   AddTeamMemberRequest,
   UpdateTeamMemberRoleRequest,
 } from '@/lib/api/types';
@@ -30,6 +31,17 @@ export function useTeamsList(orgId?: string) {
       })) as unknown as ApiResponse<TeamDTO[]>;
       return res.data || [];
     },
+  });
+}
+
+export function useTeamDetail(id: string) {
+  return useQuery<TeamDTO>({
+    queryKey: teamsKeys.detail(id),
+    queryFn: async () => {
+      const res = (await apiClient.get(`/api/v1/teams/${id}`)) as unknown as ApiResponse<TeamDTO>;
+      return res.data;
+    },
+    enabled: Boolean(id),
   });
 }
 
@@ -83,9 +95,13 @@ export function useAddTeamMember(teamId: string) {
 
   return useMutation<TeamMemberDTO, Error, AddTeamMemberRequest>({
     mutationFn: async (payload) => {
+      const body: AddTeamMemberDTO = {
+        user_id: payload.user_id,
+        role: payload.role.trim(),
+      };
       const res = (await apiClient.post(
         `/api/v1/teams/${teamId}/members`,
-        payload
+        body
       )) as unknown as ApiResponse<TeamMemberDTO>;
       return res.data;
     },

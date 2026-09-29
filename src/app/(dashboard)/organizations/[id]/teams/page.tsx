@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@/lib/validation/zodResolver';
@@ -21,7 +22,6 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { useOrgTeams } from '@/lib/hooks/api/useOrganizations';
 import { useCreateTeam } from '@/lib/hooks/api/useTeams';
-import { TeamMembersDialog } from '@/components/teams/TeamMembersDialog';
 import { createTeamSchema, CreateTeamValues } from '@/lib/validation/teams';
 import {
   Form,
@@ -42,7 +42,6 @@ export default function OrgTeamsPage() {
   const createTeam = useCreateTeam();
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [managingTeam, setManagingTeam] = useState<{ id: string; name: string } | null>(null);
 
   const form = useForm<CreateTeamValues>({
     resolver: zodResolver(createTeamSchema),
@@ -202,12 +201,14 @@ export default function OrgTeamsPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setManagingTeam({ id: team.id, name: team.name })}
+                      asChild
                       className="h-8 px-2.5 text-xs font-normal shrink-0"
                       title="Manage members"
                     >
-                      <UserCheck className="mr-1.5 h-3.5 w-3.5 text-primary" />
-                      Members
+                      <Link href={`/teams/${team.id}/members`}>
+                        <UserCheck className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                        Members
+                      </Link>
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground line-clamp-2">
@@ -223,17 +224,6 @@ export default function OrgTeamsPage() {
           </div>
         )}
       </div>
-
-      {managingTeam && (
-        <TeamMembersDialog
-          teamId={managingTeam.id}
-          teamName={managingTeam.name}
-          isOpen={Boolean(managingTeam)}
-          onOpenChange={(open) => {
-            if (!open) setManagingTeam(null);
-          }}
-        />
-      )}
     </div>
   );
 }

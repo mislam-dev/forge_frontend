@@ -11,14 +11,13 @@ export const createTeamSchema = z.object({
 export type CreateTeamValues = z.infer<typeof createTeamSchema>;
 
 export const addTeamMemberSchema = z.object({
-  name: z
+  user_id: z
     .string()
-    .min(2, 'Member name must be at least 2 characters'),
-  email: z
+    .min(1, 'User selection or ID is required')
+    .uuid('Must be a valid user UUID'),
+  role: z
     .string()
-    .min(1, 'Email address is required')
-    .email('Please enter a valid email address'),
-  role: z.enum(['Lead', 'Maintainer', 'Member', 'Viewer']).default('Member'),
+    .min(1, 'Role cannot be empty'),
 });
 
 export type AddTeamMemberValues = z.infer<typeof addTeamMemberSchema>;

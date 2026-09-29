@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { useTeamsList, useDeleteTeam } from '@/lib/hooks/api/useTeams';
-import { TeamMembersDialog } from '@/components/teams/TeamMembersDialog';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Users, Plus, Trash2, Search, Layers, UserCheck } from 'lucide-react';
 
@@ -17,7 +16,6 @@ export default function GlobalTeamsPage() {
   const deleteTeam = useDeleteTeam();
 
   const [search, setSearch] = useState('');
-  const [managingTeam, setManagingTeam] = useState<{ id: string; name: string } | null>(null);
   const [pendingDeleteTeam, setPendingDeleteTeam] = useState<{ id: string; name: string } | null>(null);
 
   const filteredTeams = teams.filter((t) =>
@@ -120,12 +118,14 @@ export default function GlobalTeamsPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setManagingTeam({ id: team.id, name: team.name })}
+                      asChild
                       className="h-8 px-2.5 text-xs font-normal"
                       title="Manage members"
                     >
-                      <UserCheck className="mr-1.5 h-3.5 w-3.5 text-primary" />
-                      Members
+                      <Link href={`/teams/${team.id}/members`}>
+                        <UserCheck className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                        Members
+                      </Link>
                     </Button>
 
                     <Button
@@ -152,17 +152,6 @@ export default function GlobalTeamsPage() {
             </div>
           ))}
         </div>
-      )}
-
-      {managingTeam && (
-        <TeamMembersDialog
-          teamId={managingTeam.id}
-          teamName={managingTeam.name}
-          isOpen={Boolean(managingTeam)}
-          onOpenChange={(open) => {
-            if (!open) setManagingTeam(null);
-          }}
-        />
       )}
 
       <ConfirmDialog

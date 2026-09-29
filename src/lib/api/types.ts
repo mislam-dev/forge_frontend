@@ -235,23 +235,22 @@ export interface CreateTeamDTO {
 export type CreateTeamRequest = CreateTeamDTO;
 
 export interface TeamMemberDTO {
-  id: string;
+  id?: string;
   team_id: string;
   user_id: string;
-  name: string;
-  email: string;
+  name?: string;
+  email?: string;
   role: string;
   team_role?: string;
   joined_at: string;
 }
 
-export interface AddTeamMemberRequest {
-  user_id?: string;
-  name?: string;
-  email?: string;
-  role?: 'Lead' | 'Maintainer' | 'Member' | 'Viewer' | string;
-  team_role?: string;
+export interface AddTeamMemberDTO {
+  user_id: string;
+  role: string;
 }
+
+export type AddTeamMemberRequest = AddTeamMemberDTO;
 
 export interface UpdateTeamMemberRoleRequest {
   role: 'Lead' | 'Maintainer' | 'Member' | 'Viewer' | string;
