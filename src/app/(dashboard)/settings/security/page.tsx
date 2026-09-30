@@ -185,14 +185,21 @@ export default function SecuritySettingsPage() {
 
       {/* Active Sessions */}
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-6">
-        <div>
-          <h2 className="font-semibold text-lg flex items-center gap-2">
-            <Laptop className="h-5 w-5 text-primary" />
-            Active Sessions & Devices
-          </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Devices that are currently signed into your Forge account across web and CLI clients.
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="font-semibold text-lg flex items-center gap-2">
+                <Laptop className="h-5 w-5 text-primary" />
+                Active Sessions & Devices
+              </h2>
+              <Badge variant="secondary" className="text-xs font-normal">
+                Static
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Devices that are currently signed into your Forge account across web and CLI clients.
+            </p>
+          </div>
         </div>
 
         {isSessionsLoading ? (

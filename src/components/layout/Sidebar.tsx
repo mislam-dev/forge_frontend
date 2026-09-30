@@ -96,6 +96,9 @@ export function Sidebar() {
 
   // Compute personal user display name
   const personalDisplayName = useMemo(() => {
+    if (userProfile?.name) {
+      return userProfile.name;
+    }
     if (userProfile?.first_name || userProfile?.last_name) {
       return [userProfile.first_name, userProfile.last_name].filter(Boolean).join(' ');
     }
@@ -112,6 +115,9 @@ export function Sidebar() {
   }, [userProfile]);
 
   const personalSubtitle = useMemo(() => {
+    if (userProfile?.email) {
+      return userProfile.email;
+    }
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('forge_user_profile');
       if (stored) {
@@ -122,7 +128,7 @@ export function Sidebar() {
       }
     }
     return 'Personal Account';
-  }, []);
+  }, [userProfile]);
 
   const isPersonal = !activeOrgId;
   const currentOrgName = activeOrgName || orgs.find((o) => o.id === activeOrgId)?.name || 'Organization';

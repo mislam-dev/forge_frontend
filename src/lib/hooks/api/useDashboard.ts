@@ -2,13 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 import {
   ApiResponse,
-  DashboardMetricsDTO,
+  SystemDashboardResponse,
+  UserDashboardResponse,
+  OrgDashboardResponse,
   HealthStatusDTO,
-  UserDashboardDTO,
-  OrgDashboardDTO,
   HealthLiveDTO,
   HealthReadyDTO,
   HealthDeepDTO,
+  DashboardMetricsDTO,
 } from '@/lib/api/types';
 
 export const dashboardKeys = {
@@ -25,35 +26,46 @@ export const dashboardKeys = {
 
 // 1. System-wide Dashboard Metrics (Admin): GET /api/v1/dashboard
 export function useSystemDashboard() {
-  return useQuery<DashboardMetricsDTO>({
+  return useQuery<SystemDashboardResponse>({
     queryKey: dashboardKeys.system(),
     queryFn: async () => {
-      const res = (await apiClient.get('/api/v1/dashboard')) as unknown as ApiResponse<DashboardMetricsDTO>;
+      const res = (await apiClient.get('/api/v1/dashboard')) as unknown as ApiResponse<SystemDashboardResponse>;
       return res.data;
     },
+    retry: false,
     refetchInterval: 30000,
   });
 }
 
 // 2. Personalized User Dashboard: GET /api/v1/dashboard/user
 export function useUserDashboard() {
-  return useQuery<UserDashboardDTO>({
+  return useQuery<UserDashboardResponse>({
     queryKey: dashboardKeys.user(),
     queryFn: async () => {
-      const res = (await apiClient.get('/api/v1/dashboard/user')) as unknown as ApiResponse<UserDashboardDTO>;
+      const res = (await apiClient.get('/api/v1/dashboard/user')) as unknown as ApiResponse<UserDashboardResponse>;
       return res.data;
     },
     refetchInterval: 30000,
   });
 }
 
-// 3. Organization Dashboard: GET /api/v1/dashboard/org/:org_id
-export function useOrgDashboard(orgId: string) {
-  return useQuery<OrgDashboardDTO>({
-    queryKey: dashboardKeys.org(orgId),
+// 3. Organization Dashboard: GET /api/v1/dashboard/org/:org_id (with fallback to /api/v1/dashboard/:org_id)
+export function useOrgDashboard(orgId?: string | null) {
+  return useQuery<OrgDashboardResponse>({
+    queryKey: dashboardKeys.org(orgId || ''),
     queryFn: async () => {
-      const res = (await apiClient.get(`/api/v1/dashboard/org/${orgId}`)) as unknown as ApiResponse<OrgDashboardDTO>;
-      return res.data;
+      if (!orgId) throw new Error('Organization ID is required');
+      try {
+        const res = (await apiClient.get(`/api/v1/dashboard/org/${orgId}`)) as unknown as ApiResponse<OrgDashboardResponse>;
+        return res.data;
+      } catch (err: unknown) {
+        const axiosErr = err as { response?: { status?: number }; status?: number };
+        if (axiosErr?.response?.status === 404 || axiosErr?.status === 404) {
+          const res = (await apiClient.get(`/api/v1/dashboard/${orgId}`)) as unknown as ApiResponse<OrgDashboardResponse>;
+          return res.data;
+        }
+        throw err;
+      }
     },
     enabled: Boolean(orgId),
     refetchInterval: 30000,

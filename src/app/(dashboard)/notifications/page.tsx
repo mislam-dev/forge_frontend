@@ -12,6 +12,7 @@ import {
   useMarkNotificationRead,
   useMarkAllNotificationsRead,
 } from '@/lib/hooks/api/useNotifications';
+import { NotificationDTO } from '@/lib/api/types';
 import {
   Bell,
   CheckCheck,
@@ -36,25 +37,73 @@ export default function NotificationsPage() {
   const [readFilter, setReadFilter] = useState<'all' | 'unread' | 'read'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  const unreadCount = useMemo(() => {
-    return notifications.filter((n) => !n.is_read).length;
+  const safeNotifications = useMemo((): NotificationDTO[] => {
+    if (Array.isArray(notifications)) return notifications;
+    if (notifications && typeof notifications === 'object') {
+      if ('data' in notifications && Array.isArray((notifications as any).data)) {
+        return (notifications as any).data;
+      }
+      if ('items' in notifications && Array.isArray((notifications as any).items)) {
+        return (notifications as any).items;
+      }
+    }
+    return [];
   }, [notifications]);
 
+  const unreadCount = useMemo(() => {
+    return safeNotifications.filter((n) => !n.is_read).length;
+  }, [safeNotifications]);
+
+  const getNotificationSeverity = (notif: NotificationDTO): 'info' | 'warning' | 'error' | 'success' => {
+    if (notif.severity) return notif.severity;
+    const typeStr = (notif.type_name || notif.type || '').toLowerCase();
+    if (typeStr.includes('error') || typeStr.includes('fail') || typeStr.includes('alert')) return 'error';
+    if (typeStr.includes('warn')) return 'warning';
+    if (typeStr.includes('success') || typeStr.includes('complete') || typeStr.includes('ready')) return 'success';
+    return 'info';
+  };
+
+  const getNotificationCategory = (notif: NotificationDTO): string => {
+    if (notif.category) return notif.category;
+    if (notif.reference_type) return notif.reference_type;
+    if (notif.type_name) return notif.type_name;
+    if (notif.type) return notif.type;
+    return 'system';
+  };
+
+  const getNotificationLink = (notif: NotificationDTO): string | null => {
+    if (notif.link_url) return notif.link_url;
+    if (notif.reference_type && notif.reference_id) {
+      const refType = notif.reference_type.toLowerCase();
+      if (refType === 'project') return `/projects/${notif.reference_id}`;
+      if (refType === 'deployment') return `/deployments/${notif.reference_id}`;
+      if (refType === 'organization') return `/organizations/${notif.reference_id}`;
+      if (refType === 'team') return `/teams`;
+    }
+    return null;
+  };
+
   const filteredNotifications = useMemo(() => {
-    return notifications.filter((n) => {
+    return safeNotifications.filter((n) => {
       if (readFilter === 'unread' && n.is_read) return false;
       if (readFilter === 'read' && !n.is_read) return false;
-      if (severityFilter !== 'all' && n.severity !== severityFilter) return false;
-      if (categoryFilter !== 'all' && (n.category || 'deployment') !== categoryFilter) return false;
+
+      const effectiveSeverity = getNotificationSeverity(n);
+      if (severityFilter !== 'all' && effectiveSeverity !== severityFilter) return false;
+
+      const effectiveCategory = getNotificationCategory(n).toLowerCase();
+      if (categoryFilter !== 'all' && effectiveCategory !== categoryFilter.toLowerCase()) return false;
+
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
-        const matchesTitle = n.title.toLowerCase().includes(query);
-        const matchesMsg = n.message.toLowerCase().includes(query);
-        if (!matchesTitle && !matchesMsg) return false;
+        const matchesTitle = (n.title || '').toLowerCase().includes(query);
+        const matchesMsg = (n.message || '').toLowerCase().includes(query);
+        const matchesType = (n.type_name || n.type || '').toLowerCase().includes(query);
+        if (!matchesTitle && !matchesMsg && !matchesType) return false;
       }
       return true;
     });
-  }, [notifications, severityFilter, categoryFilter, readFilter, searchQuery]);
+  }, [safeNotifications, severityFilter, categoryFilter, readFilter, searchQuery]);
 
   const handleMarkAllRead = async () => {
     try {
@@ -228,65 +277,71 @@ export default function NotificationsPage() {
             )}
           </div>
         ) : (
-          filteredNotifications.map((notif) => (
-            <div
-              key={notif.id}
-              className={`p-4 flex items-start justify-between gap-4 transition-colors ${
-                notif.is_read ? 'bg-card hover:bg-muted/30' : 'bg-primary/[0.03] hover:bg-primary/[0.06]'
-              }`}
-            >
-              <div className="flex items-start gap-3.5 min-w-0">
-                <div className="shrink-0 mt-0.5">{getSeverityIcon(notif.severity)}</div>
+          filteredNotifications.map((notif) => {
+            const severity = getNotificationSeverity(notif);
+            const category = getNotificationCategory(notif);
+            const linkUrl = getNotificationLink(notif);
 
-                <div className="space-y-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className={`text-sm tracking-tight truncate ${notif.is_read ? 'font-medium' : 'font-semibold text-foreground'}`}>
-                      {notif.title}
-                    </h3>
-                    {notif.category && (
-                      <Badge variant="outline" className="text-[10px] uppercase font-mono px-1.5 py-0">
-                        {notif.category}
-                      </Badge>
-                    )}
-                    {!notif.is_read && (
-                      <span className="h-2 w-2 rounded-full bg-primary shrink-0" />
-                    )}
-                  </div>
+            return (
+              <div
+                key={notif.id}
+                className={`p-4 flex items-start justify-between gap-4 transition-colors ${
+                  notif.is_read ? 'bg-card hover:bg-muted/30' : 'bg-primary/[0.03] hover:bg-primary/[0.06]'
+                }`}
+              >
+                <div className="flex items-start gap-3.5 min-w-0">
+                  <div className="shrink-0 mt-0.5">{getSeverityIcon(severity)}</div>
 
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    {notif.message}
-                  </p>
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className={`text-sm tracking-tight truncate ${notif.is_read ? 'font-medium' : 'font-semibold text-foreground'}`}>
+                        {notif.title}
+                      </h3>
+                      {category && (
+                        <Badge variant="outline" className="text-[10px] uppercase font-mono px-1.5 py-0">
+                          {category}
+                        </Badge>
+                      )}
+                      {!notif.is_read && (
+                        <span className="h-2 w-2 rounded-full bg-primary shrink-0" />
+                      )}
+                    </div>
 
-                  <div className="flex items-center gap-3 pt-1 text-[11px] text-muted-foreground">
-                    <span>
-                      {notif.created_at ? new Date(notif.created_at).toLocaleString() : 'Recent'}
-                    </span>
-                    {notif.link_url && (
-                      <Link
-                        href={notif.link_url}
-                        onClick={() => handleMarkSingleRead(notif.id)}
-                        className="flex items-center gap-1 text-primary hover:underline"
-                      >
-                        View details
-                        <ExternalLink className="h-3 w-3" />
-                      </Link>
-                    )}
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {notif.message}
+                    </p>
+
+                    <div className="flex items-center gap-3 pt-1 text-[11px] text-muted-foreground">
+                      <span>
+                        {notif.created_at ? new Date(notif.created_at).toLocaleString() : 'Recent'}
+                      </span>
+                      {linkUrl && (
+                        <Link
+                          href={linkUrl}
+                          onClick={() => handleMarkSingleRead(notif.id)}
+                          className="flex items-center gap-1 text-primary hover:underline"
+                        >
+                          View details
+                          <ExternalLink className="h-3 w-3" />
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {!notif.is_read && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleMarkSingleRead(notif.id)}
-                  className="h-8 text-xs shrink-0 text-muted-foreground hover:text-foreground"
-                >
-                  Mark read
-                </Button>
-              )}
-            </div>
-          ))
+                {!notif.is_read && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleMarkSingleRead(notif.id)}
+                    className="h-8 text-xs shrink-0 text-muted-foreground hover:text-foreground"
+                  >
+                    Mark read
+                  </Button>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
     </div>

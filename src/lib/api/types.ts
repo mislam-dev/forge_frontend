@@ -33,6 +33,14 @@ export interface ApiPaginatedResponse<T> {
 
 export type PaginatedResponse<T> = ApiPaginatedResponse<T>;
 
+export interface PaginatedData<T> {
+  data: T[];
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+}
+
 export interface ApiErrorResponse {
   is_error: boolean;
   code: string;
@@ -62,6 +70,14 @@ export interface AuthTokensDTO {
   expires_in: number;
   user?: UserDTO;
 }
+
+export interface MeResponseDto {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export type MeResponseDTO = MeResponseDto;
 
 export interface UserProfileDTO {
   id: string;
@@ -543,9 +559,13 @@ export interface SseStatusEvent {
 
 export interface NotificationDTO {
   id: string;
+  user_id?: string;
+  type_name?: string;
+  type?: string;
   title: string;
   message: string;
-  type?: string;
+  reference_id?: string | null;
+  reference_type?: string | null;
   severity?: 'info' | 'warning' | 'error' | 'success';
   category?: 'deployment' | 'security' | 'team' | 'system' | string;
   is_read?: boolean;
@@ -589,25 +609,43 @@ export interface HealthStatusDTO {
   version?: string;
 }
 
-export interface DashboardMetricsDTO {
+export interface DeploymentSummaryItem {
+  id: string;
+  project_id: string;
+  branch: string;
+  commit_hash: string;
+  status: string;
+  created_at: string;
+}
+
+export interface SystemDashboardResponse {
+  total_organizations: number;
+  total_users: number;
   total_projects: number;
-  active_deployments: number;
-  success_rate_percent?: number;
-  total_organizations?: number;
-  system_health?: HealthStatusDTO;
-  recent_deployments: DeploymentDTO[];
+  total_deployments: number;
 }
 
-export interface UserDashboardDTO {
-  recent_projects: ProjectDTO[];
-  recent_deployments: DeploymentDTO[];
-  pending_invites: OrgInvitationDTO[];
+export interface UserDashboardResponse {
+  assigned_projects_count: number;
+  deployments_triggered_count: number;
+  org_memberships_count: number;
+  recent_activity: DeploymentSummaryItem[];
 }
 
-export interface OrgDashboardDTO {
-  organization_id: string;
-  team_count: number;
-  project_count: number;
-  active_deployments: number;
-  failure_rate_percent: number;
+export interface OrgDashboardResponse {
+  org_id: string;
+  members_count: number;
+  projects_count: number;
+  teams_count: number;
+  deployments_count: number;
+  success_rate: number;
+  active_deployments_count: number;
+  recent_deployments: DeploymentSummaryItem[];
 }
+
+// Backward-compatible aliases
+export type DashboardMetricsDTO = SystemDashboardResponse;
+export type UserDashboardDTO = UserDashboardResponse;
+export type OrgDashboardDTO = OrgDashboardResponse;
+export type DeploymentSummaryDTO = DeploymentSummaryItem;
+

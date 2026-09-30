@@ -33,11 +33,19 @@ export default function SettingsOverviewPage() {
   const { data: sessions = [], isLoading: isSessionsLoading } = useActiveSessions();
   const { activeOrgId } = useWorkspaceStore();
 
-  const fullName = profile
+  const fullName = profile?.name || (profile
     ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Admin User'
-    : 'Admin User';
+    : 'Admin User');
 
-  const initials = profile?.first_name && profile?.last_name
+  const initials = profile?.name
+    ? profile.name
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((p) => p[0])
+        .join('')
+        .toUpperCase() || 'ME'
+    : profile?.first_name && profile?.last_name
     ? `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase()
     : 'ME';
 
@@ -105,8 +113,8 @@ export default function SettingsOverviewPage() {
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  ID: <span className="font-mono text-xs">{profile?.user_id || 'user-1'}</span>
-                  {profile?.phone && <span className="ml-3 font-mono text-xs">{profile.phone}</span>}
+                  ID: <span className="font-mono text-xs">{profile?.id || profile?.user_id || 'user-1'}</span>
+                  {profile?.email && <span className="ml-3 font-mono text-xs">{profile.email}</span>}
                 </p>
               </div>
             </div>

@@ -3,6 +3,7 @@ import { apiClient } from '@/lib/api/client';
 import {
   ApiResponse,
   NotificationDTO,
+  PaginatedData,
   UnreadCountDTO,
 } from '@/lib/api/types';
 
@@ -16,13 +17,25 @@ export const notificationsKeys = {
 export function useNotificationsList(unreadOnly = false, page = 1, limit = 20) {
   return useQuery<NotificationDTO[]>({
     queryKey: notificationsKeys.list(unreadOnly),
-    queryFn: async () => {
+    queryFn: async (): Promise<NotificationDTO[]> => {
       const params: Record<string, unknown> = { page, limit };
       if (unreadOnly) params.unread_only = true;
       const res = (await apiClient.get('/api/v1/notifications', {
         params,
-      })) as unknown as ApiResponse<NotificationDTO[]>;
-      return res.data || [];
+      })) as unknown as ApiResponse<
+        NotificationDTO[] | PaginatedData<NotificationDTO> | { items?: NotificationDTO[] }
+      >;
+
+      if (Array.isArray(res?.data)) {
+        return res.data;
+      }
+      if (res?.data && 'data' in res.data && Array.isArray((res.data as any).data)) {
+        return (res.data as any).data;
+      }
+      if (res?.data && 'items' in res.data && Array.isArray((res.data as any).items)) {
+        return (res.data as any).items;
+      }
+      return [];
     },
     refetchInterval: 15000,
   });

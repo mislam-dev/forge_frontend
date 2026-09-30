@@ -6,22 +6,66 @@ import {
   UpdateProfileRequest,
   ChangePasswordRequest,
   UserSessionDTO,
+  MeResponseDto,
 } from '@/lib/api/types';
 
 export const userKeys = {
   all: ['user'] as const,
-  profile: () => [...userKeys.all, 'profile'] as const,
+  profile: () => ['auth', 'me'] as const,
+  me: () => ['auth', 'me'] as const,
   sessions: () => [...userKeys.all, 'sessions'] as const,
 };
 
-export function useUserProfile() {
-  return useQuery<UserProfileDTO>({
-    queryKey: userKeys.profile(),
+export interface EnrichedMeResponse extends MeResponseDto {
+  user_id?: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  image?: string;
+}
+
+export function parseMeResponse(res: unknown): EnrichedMeResponse {
+  if (!res || typeof res !== 'object') {
+    throw new Error('Invalid response from /api/v1/auth/me');
+  }
+  const payload = (res as { data?: MeResponseDto }).data?.id
+    ? (res as { data: MeResponseDto }).data
+    : (res as MeResponseDto);
+
+  const nameParts = (payload.name || '').trim().split(/\s+/);
+  const first_name = nameParts[0] || '';
+  const last_name = nameParts.slice(1).join(' ') || '';
+
+  const enriched: EnrichedMeResponse = {
+    ...payload,
+    user_id: payload.id,
+    first_name,
+    last_name,
+  };
+
+  if (typeof window !== 'undefined' && payload?.id) {
+    try {
+      localStorage.setItem('forge_user_profile', JSON.stringify(enriched));
+    } catch {
+      // ignore storage quota / sandbox issues
+    }
+  }
+
+  return enriched;
+}
+
+export function useCurrentUser() {
+  return useQuery<EnrichedMeResponse>({
+    queryKey: userKeys.me(),
     queryFn: async () => {
-      const res = (await apiClient.get('/api/v1/users/me')) as unknown as ApiResponse<UserProfileDTO>;
-      return res.data;
+      const res = await apiClient.get('/api/v1/auth/me');
+      return parseMeResponse(res);
     },
   });
+}
+
+export function useUserProfile() {
+  return useCurrentUser();
 }
 
 export function useUpdateUserProfile() {
@@ -46,13 +90,32 @@ export function useChangePassword() {
   });
 }
 
+export const STATIC_SESSIONS: UserSessionDTO[] = [
+  {
+    id: 'sess-1',
+    device: 'MacBook Pro 16" (Current)',
+    browser: 'Chrome 128.0 (macOS)',
+    ip_address: '192.168.1.45',
+    is_current: true,
+    last_active: 'Active now',
+  },
+  {
+    id: 'sess-2',
+    device: 'iPhone 15 Pro',
+    browser: 'Mobile Safari 17.4 (iOS)',
+    ip_address: '10.0.0.12',
+    is_current: false,
+    last_active: '2 hours ago',
+  },
+];
+
 export function useActiveSessions() {
   return useQuery<UserSessionDTO[]>({
     queryKey: userKeys.sessions(),
     queryFn: async () => {
-      const res = (await apiClient.get('/api/v1/users/me/sessions')) as unknown as ApiResponse<UserSessionDTO[]>;
-      return res.data || [];
+      return STATIC_SESSIONS;
     },
+    initialData: STATIC_SESSIONS,
   });
 }
 
@@ -61,10 +124,10 @@ export function useRevokeSession() {
 
   return useMutation<void, Error, string>({
     mutationFn: async (sessionId) => {
-      await apiClient.delete(`/api/v1/users/me/sessions/${sessionId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: userKeys.sessions() });
+      queryClient.setQueryData<UserSessionDTO[]>(userKeys.sessions(), (old = STATIC_SESSIONS) =>
+        old.filter((s) => s.id !== sessionId)
+      );
     },
   });
 }
+

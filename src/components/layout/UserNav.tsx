@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useWorkspaceStore } from '@/lib/store/useWorkspaceStore';
+import { useCurrentUser } from '@/lib/hooks/api/useUserProfile';
 import {
   User,
   Settings,
@@ -31,6 +32,7 @@ export function UserNav() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const { activeOrgId } = useWorkspaceStore();
+  const { data: userProfile } = useCurrentUser();
   const [userName, setUserName] = useState('Monirul Islam');
   const [userEmail, setUserEmail] = useState('monirul@forge.dev');
 
@@ -47,6 +49,11 @@ export function UserNav() {
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (userProfile?.name) setUserName(userProfile.name);
+    if (userProfile?.email) setUserEmail(userProfile.email);
+  }, [userProfile]);
 
   const handleSignOut = () => {
     localStorage.removeItem('forge_access_token');

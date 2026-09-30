@@ -6,15 +6,34 @@ Provides complete domain feature modules and user interfaces for project lifecyc
 ## Requirements
 
 ### Requirement: Overview Dashboard Metrics & System Health
-The system SHALL present an overview dashboard displaying aggregate system metrics (total projects, active deployments, system health status, and organization count) and recent deployment activity stream, interacting with `/api/v1/dashboard/user`, `/api/v1/dashboard/org/:org_id`, `/api/v1/dashboard`, and health probes (`/api/v1/health/live`, `/api/v1/health/ready`, `/api/v1/health/deep`).
+The system SHALL present an overview dashboard on route `/dashboard` dynamically rendering workspace-specific data and, for system administrators, displaying an extra platform overview section with a dedicated label, interacting with typed API responses:
+1. **Personal Workspace Context (`activeOrgId === null`)**: Fetches `GET /api/v1/dashboard/user` returning `UserDashboardResponse` (`assigned_projects_count`, `deployments_triggered_count`, `org_memberships_count`, `recent_activity: DeploymentSummaryItem[]`).
+2. **Organization Workspace Context (`activeOrgId !== null`)**: Fetches `GET /api/v1/dashboard/org/{org_id}` returning `OrgDashboardResponse` (`org_id`, `members_count`, `projects_count`, `teams_count`, `deployments_count`, `success_rate`, `active_deployments_count`, `recent_deployments: DeploymentSummaryItem[]`).
+3. **System Administrator Section**: When the authenticated user has system administrator privileges or when `GET /api/v1/dashboard` is accessible, the dashboard SHALL render an extra prominently labeled section ("System Administration" / "Platform Overview") displaying `total_organizations`, `total_users`, `total_projects`, and `total_deployments` from `SystemDashboardResponse`, alongside system health probes (`/api/v1/health/live`, `/api/v1/health/ready`, `/api/v1/health/deep`).
 
 #### Scenario: Dashboard loads aggregate metrics successfully
 - **WHEN** an authenticated user navigates to `/dashboard`
-- **THEN** the system SHALL display metric cards for projects, deployments, organization count, system status, and a list of recent deployments with status badges.
+- **THEN** the system SHALL load the appropriate workspace dashboard data based on `useWorkspaceStore` and display metric cards and a recent deployment activity stream with status badges.
+
+#### Scenario: Personal workspace dashboard metrics rendering
+- **WHEN** an authenticated user views `/dashboard` in personal workspace mode
+- **THEN** the system SHALL display metric cards for assigned projects count, deployments triggered count, and organization memberships count, as well as a table of recent user activity conforming to `DeploymentSummaryItem`.
+
+#### Scenario: Organization workspace dashboard metrics rendering
+- **WHEN** an authenticated user views `/dashboard` with an active organization selected
+- **THEN** the system SHALL display metric cards for organization members count, projects count, teams count, total deployments, success rate percentage, and active deployments count, as well as a table of recent organization deployments conforming to `DeploymentSummaryItem`.
+
+#### Scenario: System Administrator extra data section with label
+- **WHEN** a system administrator navigates to `/dashboard`
+- **THEN** the system SHALL render an extra labeled section clearly designated with an administrative badge displaying total organizations, total users, total projects, and total deployments from `/api/v1/dashboard`.
 
 #### Scenario: System health indicator reflects backend availability
 - **WHEN** the backend health endpoint responds with operational status
 - **THEN** the system SHALL render a green status indicator showing healthy services, or an alert badge when degraded.
+
+#### Scenario: Recent deployment items formatting
+- **WHEN** recent deployments or activities are rendered in `/dashboard`
+- **THEN** each deployment row SHALL display the deployment ID, project ID / project link, branch, commit hash, creation timestamp, and a color-coded status badge conforming to `DeploymentSummaryItem`.
 
 ### Requirement: Project Listing and Filtering
 The system SHALL display all projects accessible to the active organization with real-time text filtering, runtime framework badges, git repository metadata, and last deployed timestamps, supporting filtering across backend runtime variants (`NodeJs`, `Python`, `Go`, `Static`).
@@ -261,7 +280,15 @@ The system SHALL provide team management at `/teams` and `/organizations/[id]/te
 - **THEN** the system SHALL remove the member from the team roster and update the team member count.
 
 ### Requirement: In-App Notifications Feed
-The system SHALL provide a notification center at `/notifications` listing user notifications categorized by severity (info, warning, error, success) with read/unread filtering, unread count polling via `GET /api/v1/notifications/unread-count`, single read via `PATCH /api/v1/notifications/:id/read`, mark-all-read via `PATCH /api/v1/notifications/read-all`, dismissal via `DELETE /api/v1/notifications/:id`, and live SSE alerts via `GET /api/v1/notifications/stream`.
+The system SHALL provide a notification center at `/notifications` listing user notifications categorized by severity (info, warning, error, success) or backend `type_name` with read/unread filtering, gracefully parsing paginated response envelopes (`{ data: [...], page, per_page, total, total_pages }`), unread count polling via `GET /api/v1/notifications/unread-count`, single read via `PATCH /api/v1/notifications/:id/read`, mark-all-read via `PATCH /api/v1/notifications/read-all`, dismissal via `DELETE /api/v1/notifications/:id`, and live SSE alerts via `GET /api/v1/notifications/stream`.
+
+#### Scenario: Inspecting notifications with paginated backend response
+- **WHEN** a user visits `/notifications` and the backend returns a paginated envelope `{ data: { data: [...], page, per_page, total, total_pages }, message }`
+- **THEN** the system SHALL extract the notification items array without throwing `TypeError: notifications.filter is not a function`, compute unread counts accurately, and display the notification feed.
+
+#### Scenario: Rendering notifications with Axum NotificationResponse schema
+- **WHEN** notifications contain `id`, `user_id`, `type_name`, `title`, `message`, `reference_id`, `reference_type`, `is_read`, and `created_at`
+- **THEN** the system SHALL render each notification card, deriving severity and category from `type_name` when explicit severity/category fields are omitted, and resolve detail links from `reference_type` and `reference_id` when `link_url` is absent.
 
 #### Scenario: Marking all notifications as read
 - **WHEN** a user clicks "Mark all as read"
@@ -272,7 +299,7 @@ The system SHALL provide a notification center at `/notifications` listing user 
 - **THEN** the system SHALL increment unread counts and display a toast alert in the Topbar.
 
 ### Requirement: User Profile and Security Settings
-The system SHALL provide settings interfaces at `/settings` and `/settings/security` allowing users to update their profile info (display name, email, avatar), change passwords, review active sessions, and inspect MFA status, validating all user inputs with Zod schemas.
+The system SHALL provide settings interfaces at `/settings` and `/settings/security` allowing users to update their profile info (display name, email, avatar), change passwords, review active sessions marked with a "Static" badge without calling non-existent backend endpoints, and inspect MFA status, validating all user inputs with Zod schemas.
 
 #### Scenario: Updating profile information
 - **WHEN** a user updates their display name and submits the profile form
@@ -289,6 +316,10 @@ The system SHALL provide settings interfaces at `/settings` and `/settings/secur
 #### Scenario: Password validation failure
 - **WHEN** a user submits a new password that is shorter than 8 characters or when the confirmation password does not match
 - **THEN** the system SHALL display inline validation messages beneath the password fields and block the submission.
+
+#### Scenario: Reviewing active sessions with static indicator
+- **WHEN** a user navigates to `/settings/security` or `/settings`
+- **THEN** the system SHALL display the active sessions section with a visible "Static" badge and demo session data, without making network requests to `/api/v1/users/me/sessions`.
 
 ### Requirement: Offline Mock Provider and Fallback Simulation
 The system SHALL include an offline mock data provider and SSE log emitter that seamlessly simulates API responses and build log streams according to the OpenAPI 3.0 path conventions and response envelopes when the Axum backend server is offline or when `NEXT_PUBLIC_ENABLE_MOCKS=true`.

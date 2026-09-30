@@ -43,9 +43,16 @@ export default function ProfileSettingsPage() {
 
   useEffect(() => {
     if (profile) {
+      let first = profile.first_name || '';
+      let last = profile.last_name || '';
+      if (!first && !last && profile.name) {
+        const parts = profile.name.trim().split(/\s+/);
+        first = parts[0] || '';
+        last = parts.slice(1).join(' ') || '';
+      }
       form.reset({
-        first_name: profile.first_name || '',
-        last_name: profile.last_name || '',
+        first_name: first,
+        last_name: last,
         phone: profile.phone || '',
         image: profile.image || '',
       });
@@ -90,7 +97,8 @@ export default function ProfileSettingsPage() {
               {firstName} {lastName}
             </h2>
             <p className="text-xs text-muted-foreground font-mono">
-              User ID: {profile?.user_id || 'user-1'}
+              User ID: {profile?.id || profile?.user_id || 'user-1'}
+              {profile?.email && <span className="ml-3 font-sans text-xs">({profile.email})</span>}
             </p>
           </div>
         </div>
