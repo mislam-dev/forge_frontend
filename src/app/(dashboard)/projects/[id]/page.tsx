@@ -142,7 +142,7 @@ export default function ProjectOverviewPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="font-mono text-xs font-semibold">
-                  Deployment #{latestDeployment.deployment_number}
+                  Deployment {latestDeployment.deployment_number != null ? `#${latestDeployment.deployment_number}` : `#${latestDeployment.id ? latestDeployment.id.slice(0, 8) : '—'}`}
                 </span>
                 <StatusBadge status={latestDeployment.status} />
               </div>
@@ -150,12 +150,27 @@ export default function ProjectOverviewPage() {
               <div className="rounded-lg bg-muted/50 p-3 space-y-1.5 text-xs">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <GitBranch className="h-3.5 w-3.5" />
-                  <span className="font-mono">{latestDeployment.branch}</span>
-                  <span className="font-mono">({latestDeployment.commit_sha})</span>
+                  <span className="font-mono">{latestDeployment.branch || 'main'}</span>
+                  <span className="font-mono">({latestDeployment.commit_hash || latestDeployment.commit_sha || 'HEAD'})</span>
                 </div>
-                <p className="text-muted-foreground line-clamp-1 italic">
-                  {latestDeployment.commit_message || 'Manual build trigger'}
-                </p>
+                {latestDeployment.commit_message ? (
+                  <p className="text-muted-foreground line-clamp-1 italic">
+                    {latestDeployment.commit_message}
+                  </p>
+                ) : latestDeployment.error_message ? (
+                  <p className="text-destructive font-medium line-clamp-1">
+                    {latestDeployment.error_message}
+                  </p>
+                ) : (
+                  <p className="text-muted-foreground line-clamp-1 italic">
+                    Manual build trigger
+                  </p>
+                )}
+                {latestDeployment.status?.toLowerCase() === 'failed' && latestDeployment.error_message && latestDeployment.commit_message && (
+                  <p className="text-destructive font-medium line-clamp-1 pt-0.5">
+                    Error: {latestDeployment.error_message}
+                  </p>
+                )}
               </div>
 
               <div className="flex justify-end pt-1">

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 import {
   ApiResponse,
+  PaginatedData,
   PaginatedResponse,
   ProjectDTO,
   CreateProjectRequest,
@@ -22,10 +23,15 @@ export function useProjectsList(orgId?: string) {
       const params = orgId ? { org_id: orgId } : undefined;
       const res = (await apiClient.get('/api/v1/projects', {
         params,
-      })) as unknown as ApiResponse<ProjectDTO[] | PaginatedResponse<ProjectDTO>>;
+      })) as unknown as ApiResponse<
+        ProjectDTO[] | PaginatedData<ProjectDTO> | PaginatedResponse<ProjectDTO>
+      >;
       
       if (Array.isArray(res?.data)) {
         return res.data;
+      }
+      if (res?.data && 'data' in res.data && Array.isArray((res.data as any).data)) {
+        return (res.data as any).data;
       }
       if (res?.data && 'items' in res.data && Array.isArray((res.data as any).items)) {
         return (res.data as any).items;

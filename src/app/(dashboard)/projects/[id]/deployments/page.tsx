@@ -140,56 +140,81 @@ export default function ProjectDeploymentsHistoryPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filteredDeployments.map((dep) => (
-                    <tr key={dep.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="py-3.5 px-4 font-mono font-semibold text-xs">
-                        #{dep.deployment_number}
-                      </td>
+                  {filteredDeployments.map((dep) => {
+                    const depLabel = dep.deployment_number != null
+                      ? `#${dep.deployment_number}`
+                      : `#${dep.id ? dep.id.slice(0, 8) : '—'}`;
+                    const commitRef = dep.commit_hash || dep.commit_sha || 'HEAD';
+                    const durationSeconds = dep.duration_seconds ??
+                      (dep.build_duration != null || dep.deploy_duration != null
+                        ? (dep.build_duration || 0) + (dep.deploy_duration || 0)
+                        : null);
 
-                      <td className="py-3.5 px-4">
-                        <StatusBadge status={dep.status} />
-                      </td>
+                    return (
+                      <tr key={dep.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="py-3.5 px-4 font-mono font-semibold text-xs">
+                          {depLabel}
+                        </td>
 
-                      <td className="py-3.5 px-4 max-w-xs">
-                        <div className="flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
-                          <GitCommit className="h-3.5 w-3.5 shrink-0" />
-                          <span>{dep.commit_sha}</span>
-                        </div>
-                        {dep.commit_message && (
-                          <p className="text-xs text-foreground truncate mt-0.5" title={dep.commit_message}>
-                            {dep.commit_message}
-                          </p>
-                        )}
-                      </td>
+                        <td className="py-3.5 px-4">
+                          <StatusBadge status={dep.status} />
+                          {dep.status?.toLowerCase() === 'failed' && dep.error_message && (
+                            <p
+                              className="text-[11px] text-destructive font-medium truncate mt-1 max-w-[200px]"
+                              title={dep.error_message}
+                            >
+                              {dep.error_message}
+                            </p>
+                          )}
+                        </td>
 
-                      <td className="py-3.5 px-4 font-mono text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <GitBranch className="h-3 w-3 shrink-0" />
-                          <span>{dep.branch}</span>
-                        </div>
-                      </td>
+                        <td className="py-3.5 px-4 max-w-xs">
+                          <div className="flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
+                            <GitCommit className="h-3.5 w-3.5 shrink-0" />
+                            <span>{commitRef}</span>
+                          </div>
+                          {dep.commit_message ? (
+                            <p className="text-xs text-foreground truncate mt-0.5" title={dep.commit_message}>
+                              {dep.commit_message}
+                            </p>
+                          ) : dep.error_message ? (
+                            <p className="text-xs text-muted-foreground truncate mt-0.5 italic" title={dep.error_message}>
+                              {dep.error_message}
+                            </p>
+                          ) : null}
+                        </td>
 
-                      <td className="py-3.5 px-4 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <User className="h-3 w-3 shrink-0" />
-                          <span>{dep.triggered_by}</span>
-                        </div>
-                      </td>
+                        <td className="py-3.5 px-4 font-mono text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <GitBranch className="h-3 w-3 shrink-0" />
+                            <span>{dep.branch || 'main'}</span>
+                          </div>
+                        </td>
 
-                      <td className="py-3.5 px-4 font-mono text-xs text-muted-foreground">
-                        {dep.duration_seconds ? `${dep.duration_seconds}s` : '—'}
-                      </td>
+                        <td className="py-3.5 px-4 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <User className="h-3 w-3 shrink-0" />
+                            <span className="truncate max-w-[120px]" title={dep.triggered_by || 'System'}>
+                              {dep.triggered_by ? `${dep.triggered_by.slice(0, 8)}...` : 'System'}
+                            </span>
+                          </div>
+                        </td>
 
-                      <td className="py-3.5 px-4 text-right">
-                        <Button variant="ghost" size="sm" asChild className="h-8 text-xs gap-1">
-                          <Link href={`/projects/${projectId}/deployments/${dep.id}`}>
-                            View Console
-                            <ArrowRight className="h-3 w-3" />
-                          </Link>
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                        <td className="py-3.5 px-4 font-mono text-xs text-muted-foreground">
+                          {durationSeconds != null ? `${durationSeconds}s` : '—'}
+                        </td>
+
+                        <td className="py-3.5 px-4 text-right">
+                          <Button variant="ghost" size="sm" asChild className="h-8 text-xs gap-1">
+                            <Link href={`/projects/${projectId}/deployments/${dep.id}`}>
+                              View Console
+                              <ArrowRight className="h-3 w-3" />
+                            </Link>
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

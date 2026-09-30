@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, API_BASE_URL } from '@/lib/api/client';
 import {
   ApiResponse,
+  PaginatedData,
   PaginatedResponse,
   DeploymentDTO,
   TriggerDeploymentRequest,
@@ -28,12 +29,17 @@ export function useDeploymentsList(projectId: string, status?: string) {
       const params = status && status !== 'all' ? { status } : undefined;
       const res = (await apiClient.get(`/api/v1/projects/${projectId}/deployments`, {
         params,
-      })) as unknown as ApiResponse<DeploymentDTO[] | PaginatedResponse<DeploymentDTO>>;
+      })) as unknown as ApiResponse<
+        DeploymentDTO[] | PaginatedData<DeploymentDTO> | PaginatedResponse<DeploymentDTO>
+      >;
       
-      if (Array.isArray(res.data)) {
+      if (Array.isArray(res?.data)) {
         return res.data;
       }
-      if (res.data && 'items' in res.data && Array.isArray((res.data as any).items)) {
+      if (res?.data && 'data' in res.data && Array.isArray((res.data as any).data)) {
+        return (res.data as any).data;
+      }
+      if (res?.data && 'items' in res.data && Array.isArray((res.data as any).items)) {
         return (res.data as any).items;
       }
       return [];

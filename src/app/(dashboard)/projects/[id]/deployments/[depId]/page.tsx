@@ -20,6 +20,7 @@ import {
   Clock,
   Maximize2,
   Minimize2,
+  AlertTriangle,
 } from 'lucide-react';
 
 export default function DeploymentConsolePage() {
@@ -45,12 +46,23 @@ export default function DeploymentConsolePage() {
 
   const isOngoing = deployment && ['Building', 'Deploying', 'Queued', 'Running'].includes(deployment.status);
 
+  const depLabel = deployment?.deployment_number != null
+    ? `#${deployment.deployment_number}`
+    : deployment?.id
+    ? `#${deployment.id.slice(0, 8)}`
+    : '...';
+
+  const durationSeconds = deployment?.duration_seconds ??
+    (deployment?.build_duration != null || deployment?.deploy_duration != null
+      ? (deployment.build_duration || 0) + (deployment.deploy_duration || 0)
+      : null);
+
   const handleCancel = async () => {
     try {
       await cancelDeploy.mutateAsync(depId);
       toast({
         title: 'Deployment Cancelled',
-        description: `Deployment #${deployment?.deployment_number} cancellation signal sent.`,
+        description: `Deployment ${depLabel} cancellation signal sent.`,
       });
     } catch (err: any) {
       toast({
@@ -67,15 +79,15 @@ export default function DeploymentConsolePage() {
         branch: deployment?.branch,
         commit_hash: deployment?.commit_hash || deployment?.commit_sha,
       });
-      const depLabel = newDep?.deployment_number
+      const newDepLabel = newDep?.deployment_number != null
         ? `#${newDep.deployment_number}`
         : newDep?.id
-        ? newDep.id.slice(0, 8)
+        ? `#${newDep.id.slice(0, 8)}`
         : '';
       toast({
         title: 'Redeployment Queued',
-        description: depLabel
-          ? `Deployment ${depLabel} queued.`
+        description: newDepLabel
+          ? `Deployment ${newDepLabel} queued.`
           : 'Redeployment queued successfully.',
       });
       if (newDep?.id) {
@@ -104,7 +116,7 @@ export default function DeploymentConsolePage() {
 
           <div className="flex items-center gap-3">
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight font-mono">
-              Deployment #{deployment?.deployment_number ?? '...'}
+              Deployment {depLabel}
             </h1>
             {deployment && <StatusBadge status={deployment.status} />}
           </div>
@@ -158,6 +170,17 @@ export default function DeploymentConsolePage() {
         </div>
       </div>
 
+      {/* Failure Alert Banner */}
+      {deployment?.status?.toLowerCase() === 'failed' && deployment?.error_message && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-xs flex items-start gap-3">
+          <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <p className="font-semibold text-destructive">Deployment Failed</p>
+            <p className="text-foreground/90 font-mono">{deployment.error_message}</p>
+          </div>
+        </div>
+      )}
+
       {/* Deployment Metadata Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl border border-border bg-card text-xs">
         <div className="space-y-1">
@@ -176,7 +199,7 @@ export default function DeploymentConsolePage() {
             Commit SHA
           </span>
           <span className="font-mono font-medium block truncate">
-            {deployment?.commit_sha || '—'}
+            {deployment?.commit_hash || deployment?.commit_sha || '—'}
           </span>
         </div>
 
@@ -185,8 +208,8 @@ export default function DeploymentConsolePage() {
             <User className="h-3 w-3" />
             Initiator
           </span>
-          <span className="font-medium block truncate">
-            {deployment?.triggered_by || 'Unknown'}
+          <span className="font-medium block truncate" title={deployment?.triggered_by || 'Unknown'}>
+            {deployment?.triggered_by ? `${deployment.triggered_by.slice(0, 8)}...` : 'Unknown'}
           </span>
         </div>
 
@@ -196,7 +219,7 @@ export default function DeploymentConsolePage() {
             Elapsed Time
           </span>
           <span className="font-mono font-medium block">
-            {deployment?.duration_seconds ? `${deployment.duration_seconds}s` : isOngoing ? 'Running...' : '—'}
+            {durationSeconds != null ? `${durationSeconds}s` : isOngoing ? 'Running...' : '—'}
           </span>
         </div>
       </div>
