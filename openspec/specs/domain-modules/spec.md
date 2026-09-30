@@ -147,7 +147,7 @@ The system SHALL provide workspace-aware access control at `/projects/[id]/acces
 - **THEN** the system SHALL render only the direct member collaborator management view and suppress all team assignment options, team lists, and team tabs.
 
 ### Requirement: Deployment History and Status Filtering
-The system SHALL provide a paginated deployment history view at `/projects/[id]/deployments` displaying deployment ID or sequence number, commit SHA/hash, branch, initiator, duration, and status badge with filtering by status (`Queued`, `Running`, `Success`, `Failed`, `Cancelled`), interacting with `GET /api/v1/projects/:id/deployments` for project history, `POST /api/v1/projects/:id/deployments` for triggering new deployments, and `/api/v1/projects/:id/rollback` for project rollbacks.
+The system SHALL provide a paginated deployment history view at `/projects/[id]/deployments` displaying deployment ID or sequence number, commit SHA/hash, branch, initiator, duration, and status badge with filtering by status (`Queued`, `Running`, `Success`, `Failed`, `Cancelled`), interacting with `GET /api/v1/projects/:id/deployments` for project history, `POST /api/v1/projects/:id/deployments` for triggering new deployments, and `/api/v1/projects/:id/rollback` for project rollbacks, without automated background short polling intervals.
 
 #### Scenario: Unwrapping paginated deployment response envelopes
 - **WHEN** the backend returns a paginated envelope response containing `{ data: { data: [...], page, per_page, total, total_pages }, message }` from `GET /api/v1/projects/:id/deployments`
@@ -169,6 +169,10 @@ The system SHALL provide a paginated deployment history view at `/projects/[id]/
 - **WHEN** a user selects "Failed" from the deployment status filter dropdown
 - **THEN** the system SHALL display only deployments matching the failed state.
 
+#### Scenario: Loading deployment history without short polling
+- **WHEN** an authenticated user views the deployments list or project overview
+- **THEN** the system SHALL fetch deployment records on initial mount and SHALL NOT schedule automated periodic short-polling refetch intervals.
+
 #### Scenario: Triggering a new deployment
 - **WHEN** a developer clicks the deploy action from the project header, deployment history page, or redeploy button on a deployment detail page
 - **THEN** the system SHALL dispatch a `POST /api/v1/projects/:id/deployments` request with the target project ID as a path parameter, optional `branch` and `commit_hash` in the JSON request body, and optional `Organization-ID` header, receiving HTTP 201 with the queued deployment data, displaying a safe confirmation notification without rendering undefined values, and navigating to or refreshing the deployment details.
@@ -182,11 +186,15 @@ The system SHALL provide a paginated deployment history view at `/projects/[id]/
 - **THEN** the system SHALL dispatch `POST /api/v1/projects/:id/rollback` with target environment and deployment ID.
 
 ### Requirement: Real-Time Deployment Log Streaming and Build Console
-The system SHALL provide an interactive build console at `/projects/[id]/deployments/[depId]` rendering streaming Server-Sent Events (SSE) build logs via `/api/v1/deployments/:id/logs/stream`, query stored logs via `/api/v1/deployments/:id/logs`, keyword search logs via `/api/v1/deployments/:id/logs/search`, download raw logs via `/api/v1/deployments/:id/logs/download`, and deployment control actions (cancel and redeploy).
+The system SHALL provide an interactive build console at `/projects/[id]/deployments/[depId]` rendering streaming Server-Sent Events (SSE) build logs via `/api/v1/deployments/:id/logs/stream`, query stored logs via `/api/v1/deployments/:id/logs`, keyword search logs via `/api/v1/deployments/:id/logs/search`, download raw logs via `/api/v1/deployments/:id/logs/download`, and deployment control actions (cancel and redeploy), without executing background short polling on deployment records.
 
 #### Scenario: Streaming live logs over SSE
 - **WHEN** a user opens an active deployment page
 - **THEN** the system SHALL establish an EventSource connection to the log stream endpoint `/api/v1/deployments/:id/logs/stream` and append incoming log chunks into `SseLogViewer` in real-time.
+
+#### Scenario: Viewing deployment logs without short polling
+- **WHEN** a user navigates to `/projects/[id]/deployments/[depId]` to view build logs
+- **THEN** the system SHALL perform an initial query for deployment metadata and SHALL NOT execute recurring short polling queries against `/api/v1/deployments/:id`.
 
 #### Scenario: Triggering redeployment
 - **WHEN** a user clicks the "Redeploy" button

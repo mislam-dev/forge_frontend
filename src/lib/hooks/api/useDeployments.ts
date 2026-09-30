@@ -45,13 +45,6 @@ export function useDeploymentsList(projectId: string, status?: string) {
       return [];
     },
     enabled: Boolean(projectId),
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      const hasActive = data?.some((d) =>
-        ['Queued', 'queued', 'Building', 'cloning', 'building', 'Deploying', 'running', 'Running'].includes(d.status)
-      );
-      return hasActive ? 4000 : 20000;
-    },
   });
 }
 
@@ -67,13 +60,6 @@ export function useDeploymentDetail(arg1: string, arg2?: string) {
       return res.data;
     },
     enabled: Boolean(depId),
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      if (data && ['Success', 'healthy', 'Failed', 'failed', 'Cancelled', 'cancelled'].includes(data.status)) {
-        return false;
-      }
-      return 3000;
-    },
   });
 }
 
