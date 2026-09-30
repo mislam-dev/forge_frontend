@@ -25,49 +25,42 @@ export const dashboardKeys = {
 };
 
 // 1. System-wide Dashboard Metrics (Admin): GET /api/v1/dashboard
-export function useSystemDashboard() {
+export function useSystemDashboard(options?: { enabled?: boolean }) {
   return useQuery<SystemDashboardResponse>({
     queryKey: dashboardKeys.system(),
     queryFn: async () => {
       const res = (await apiClient.get('/api/v1/dashboard')) as unknown as ApiResponse<SystemDashboardResponse>;
       return res.data;
     },
+    enabled: options?.enabled ?? true,
     retry: false,
     refetchInterval: 30000,
   });
 }
 
 // 2. Personalized User Dashboard: GET /api/v1/dashboard/user
-export function useUserDashboard() {
+export function useUserDashboard(options?: { enabled?: boolean }) {
   return useQuery<UserDashboardResponse>({
     queryKey: dashboardKeys.user(),
     queryFn: async () => {
       const res = (await apiClient.get('/api/v1/dashboard/user')) as unknown as ApiResponse<UserDashboardResponse>;
       return res.data;
     },
+    enabled: options?.enabled ?? true,
     refetchInterval: 30000,
   });
 }
 
-// 3. Organization Dashboard: GET /api/v1/dashboard/org/:org_id (with fallback to /api/v1/dashboard/:org_id)
-export function useOrgDashboard(orgId?: string | null) {
+// 3. Organization Dashboard: GET /api/v1/dashboard/org/:org_id
+export function useOrgDashboard(orgId?: string | null, options?: { enabled?: boolean }) {
   return useQuery<OrgDashboardResponse>({
     queryKey: dashboardKeys.org(orgId || ''),
     queryFn: async () => {
       if (!orgId) throw new Error('Organization ID is required');
-      try {
-        const res = (await apiClient.get(`/api/v1/dashboard/org/${orgId}`)) as unknown as ApiResponse<OrgDashboardResponse>;
-        return res.data;
-      } catch (err: unknown) {
-        const axiosErr = err as { response?: { status?: number }; status?: number };
-        if (axiosErr?.response?.status === 404 || axiosErr?.status === 404) {
-          const res = (await apiClient.get(`/api/v1/dashboard/${orgId}`)) as unknown as ApiResponse<OrgDashboardResponse>;
-          return res.data;
-        }
-        throw err;
-      }
+      const res = (await apiClient.get(`/api/v1/dashboard/org/${orgId}`)) as unknown as ApiResponse<OrgDashboardResponse>;
+      return res.data;
     },
-    enabled: Boolean(orgId),
+    enabled: Boolean(orgId) && (options?.enabled ?? true),
     refetchInterval: 30000,
   });
 }

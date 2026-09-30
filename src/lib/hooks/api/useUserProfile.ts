@@ -8,6 +8,7 @@ import {
   UserSessionDTO,
   MeResponseDto,
 } from '@/lib/api/types';
+import { useUserAssignedRoles } from '@/lib/hooks/api/useAccessControl';
 
 export const userKeys = {
   all: ['user'] as const,
@@ -62,6 +63,32 @@ export function useCurrentUser() {
       return parseMeResponse(res);
     },
   });
+}
+
+export function useIsSystemAdmin(): { isSystemAdmin: boolean; isLoading: boolean } {
+  const { data: user, isLoading: isUserLoading } = useCurrentUser();
+  const userId = user?.id || user?.user_id;
+
+  const { data: assignedRoles, isLoading: isRolesLoading } = useUserAssignedRoles(userId || '');
+
+  const userObj = user as Record<string, unknown> | undefined;
+  const directRoles = Array.isArray(userObj?.roles) ? (userObj?.roles as string[]) : [];
+  const singleRole = typeof userObj?.role === 'string' ? userObj.role : '';
+  const isDirectAdmin =
+    Boolean(userObj?.is_admin) ||
+    Boolean(userObj?.is_superuser) ||
+    singleRole.toLowerCase().includes('admin') ||
+    directRoles.some((r) => typeof r === 'string' && r.toLowerCase().includes('admin'));
+
+  const isAssignedAdmin = (assignedRoles || []).some((role) => {
+    const name = (role.name || '').toLowerCase();
+    return name.includes('admin') || Boolean(role.is_system);
+  });
+
+  return {
+    isSystemAdmin: isDirectAdmin || isAssignedAdmin,
+    isLoading: isUserLoading || (Boolean(userId) && isRolesLoading),
+  };
 }
 
 export function useUserProfile() {

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { QueryErrorState } from '@/components/shared/QueryErrorState';
@@ -14,6 +14,7 @@ import {
   useSystemHealth,
 } from '@/lib/hooks/api/useDashboard';
 import { useWorkspaceStore } from '@/lib/store/useWorkspaceStore';
+import { useIsSystemAdmin } from '@/lib/hooks/api/useUserProfile';
 import {
   Server,
   Activity,
@@ -28,14 +29,15 @@ import {
   Layers,
   Shield,
   UserCheck,
-  CheckCircle,
 } from 'lucide-react';
 
 export default function DashboardPage() {
   const { activeOrgId, activeOrgName } = useWorkspaceStore();
   const isOrgWorkspace = Boolean(activeOrgId);
+  const { isSystemAdmin } = useIsSystemAdmin();
+  const [showAdminView, setShowAdminView] = useState(false);
 
-  // 1. Personal Workspace Query
+  // 1. Personal Workspace Query - strictly enabled ONLY when in personal workspace and not in admin view
   const {
     data: userMetrics,
     isLoading: isUserLoading,
@@ -43,9 +45,11 @@ export default function DashboardPage() {
     error: userError,
     refetch: refetchUser,
     isRefetching: isUserRefetching,
-  } = useUserDashboard();
+  } = useUserDashboard({
+    enabled: !isOrgWorkspace && !showAdminView,
+  });
 
-  // 2. Organization Workspace Query
+  // 2. Organization Workspace Query - strictly enabled ONLY when in org workspace and not in admin view
   const {
     data: orgMetrics,
     isLoading: isOrgLoading,
@@ -53,15 +57,21 @@ export default function DashboardPage() {
     error: orgError,
     refetch: refetchOrg,
     isRefetching: isOrgRefetching,
-  } = useOrgDashboard(activeOrgId);
+  } = useOrgDashboard(activeOrgId, {
+    enabled: isOrgWorkspace && !showAdminView,
+  });
 
-  // 3. System Administrator Query (Admin-only data)
+  // 3. System Administrator Query - strictly enabled ONLY if user is verified system admin AND viewing admin view
   const {
     data: systemMetrics,
     isLoading: isSystemLoading,
+    isError: isSystemError,
+    error: systemError,
     refetch: refetchSystem,
     isRefetching: isSystemRefetching,
-  } = useSystemDashboard();
+  } = useSystemDashboard({
+    enabled: isSystemAdmin && showAdminView,
+  });
 
   // 4. System Health Status
   const {
@@ -74,21 +84,32 @@ export default function DashboardPage() {
     isUserRefetching || isOrgRefetching || isSystemRefetching;
 
   const handleRefresh = () => {
-    if (isOrgWorkspace) {
+    if (showAdminView) {
+      refetchSystem();
+    } else if (isOrgWorkspace) {
       refetchOrg();
     } else {
       refetchUser();
     }
-    refetchSystem();
   };
 
-  // Determine if system admin data is available
-  const isSystemAdmin = Boolean(systemMetrics && typeof systemMetrics.total_users === 'number');
+  const isCurrentLoading = showAdminView
+    ? isSystemLoading
+    : isOrgWorkspace
+    ? isOrgLoading
+    : isUserLoading;
 
-  // Active workspace error & loading states
-  const isWorkspaceLoading = isOrgWorkspace ? isOrgLoading : isUserLoading;
-  const isWorkspaceError = isOrgWorkspace ? isOrgError : isUserError;
-  const workspaceError = isOrgWorkspace ? orgError : userError;
+  const isCurrentError = showAdminView
+    ? isSystemError
+    : isOrgWorkspace
+    ? isOrgError
+    : isUserError;
+
+  const currentError = showAdminView
+    ? systemError
+    : isOrgWorkspace
+    ? orgError
+    : userError;
 
   return (
     <div className="space-y-8">
@@ -97,10 +118,19 @@ export default function DashboardPage() {
         <div>
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-              {isOrgWorkspace ? `${activeOrgName || 'Organization'} Dashboard` : 'Personal Dashboard'}
+              {showAdminView
+                ? 'System Administration'
+                : isOrgWorkspace
+                ? `${activeOrgName || 'Organization'} Dashboard`
+                : 'Personal Dashboard'}
             </h1>
+
             <Badge variant="secondary" className="text-xs">
-              {isOrgWorkspace ? 'Organization Workspace' : 'Personal Workspace'}
+              {showAdminView
+                ? 'Platform Infrastructure'
+                : isOrgWorkspace
+                ? 'Organization Workspace'
+                : 'Personal Workspace'}
             </Badge>
 
             {isHealthLoading ? (
@@ -132,13 +162,38 @@ export default function DashboardPage() {
             )}
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            {isOrgWorkspace
+            {showAdminView
+              ? 'Platform-wide aggregated infrastructure metrics across all tenants.'
+              : isOrgWorkspace
               ? `Operational metrics and deployment pipelines for ${activeOrgName || 'this organization'}.`
               : 'Overview of your assigned projects, triggered builds, and personal workspace activity.'}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* System Administrator View Toggle (Rendered ONLY if verified system admin) */}
+          {isSystemAdmin && (
+            <div className="flex items-center bg-muted p-1 rounded-lg border border-border">
+              <Button
+                variant={!showAdminView ? 'default' : 'ghost'}
+                size="sm"
+                className="h-7 text-xs px-2.5"
+                onClick={() => setShowAdminView(false)}
+              >
+                Workspace View
+              </Button>
+              <Button
+                variant={showAdminView ? 'default' : 'ghost'}
+                size="sm"
+                className="h-7 text-xs px-2.5 gap-1.5"
+                onClick={() => setShowAdminView(true)}
+              >
+                <Shield className="h-3.5 w-3.5 text-primary" />
+                System Admin
+              </Button>
+            </div>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -151,12 +206,15 @@ export default function DashboardPage() {
             />
             Refresh
           </Button>
-          <Button asChild size="sm" className="h-9">
-            <Link href="/projects/new">
-              <Plus className="mr-2 h-4 w-4" />
-              New Project
-            </Link>
-          </Button>
+
+          {!showAdminView && (
+            <Button asChild size="sm" className="h-9">
+              <Link href="/projects/new">
+                <Plus className="mr-2 h-4 w-4" />
+                New Project
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -192,90 +250,96 @@ export default function DashboardPage() {
         </Button>
       </div>
 
-      {/* SYSTEM ADMINISTRATOR DATA SECTION (Rendered with clear label when admin data is accessible) */}
-      {isSystemAdmin && (
-        <div className="rounded-xl border border-primary/30 bg-card/60 p-6 shadow-sm space-y-4 relative overflow-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-border pb-4">
-            <div className="flex items-center gap-2.5">
-              <Badge
-                variant="outline"
-                className="gap-1.5 border-primary/40 bg-primary/10 text-primary font-semibold px-2.5 py-1"
-              >
-                <Shield className="h-3.5 w-3.5" />
-                System Administrator View
-              </Badge>
-              <div>
-                <h2 className="text-base font-semibold tracking-tight">
-                  Platform System Infrastructure
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  Global instance totals extracted from the system administration endpoint.
-                </p>
-              </div>
-            </div>
-            <span className="text-[11px] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">
-              Role: System Administrator
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="rounded-lg border border-border bg-background/50 p-4 space-y-1">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Total Organizations</span>
-                <Building className="h-3.5 w-3.5 text-blue-500" />
-              </div>
-              <div className="text-xl font-bold font-mono">
-                {isSystemLoading ? <Skeleton className="h-7 w-16" /> : systemMetrics?.total_organizations ?? 0}
-              </div>
-              <p className="text-[11px] text-muted-foreground">Tenants created</p>
-            </div>
-
-            <div className="rounded-lg border border-border bg-background/50 p-4 space-y-1">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Total Users</span>
-                <UserCheck className="h-3.5 w-3.5 text-emerald-500" />
-              </div>
-              <div className="text-xl font-bold font-mono">
-                {isSystemLoading ? <Skeleton className="h-7 w-16" /> : systemMetrics?.total_users ?? 0}
-              </div>
-              <p className="text-[11px] text-muted-foreground">Registered accounts</p>
-            </div>
-
-            <div className="rounded-lg border border-border bg-background/50 p-4 space-y-1">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Total Projects</span>
-                <Briefcase className="h-3.5 w-3.5 text-purple-500" />
-              </div>
-              <div className="text-xl font-bold font-mono">
-                {isSystemLoading ? <Skeleton className="h-7 w-16" /> : systemMetrics?.total_projects ?? 0}
-              </div>
-              <p className="text-[11px] text-muted-foreground">Platform repositories</p>
-            </div>
-
-            <div className="rounded-lg border border-border bg-background/50 p-4 space-y-1">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Total Deployments</span>
-                <Layers className="h-3.5 w-3.5 text-amber-500" />
-              </div>
-              <div className="text-xl font-bold font-mono">
-                {isSystemLoading ? <Skeleton className="h-7 w-16" /> : systemMetrics?.total_deployments ?? 0}
-              </div>
-              <p className="text-[11px] text-muted-foreground">Historical build runs</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* WORKSPACE METRICS & RECENT ACTIVITY */}
-      {isWorkspaceError ? (
+      {/* ERROR STATE */}
+      {isCurrentError ? (
         <QueryErrorState
           title="Unable to load dashboard metrics"
-          error={workspaceError}
+          error={currentError}
           onRetry={handleRefresh}
           isRetrying={isRefetchingAny}
         />
+      ) : showAdminView ? (
+        // SYSTEM ADMINISTRATOR VIEW (Triggered only when admin view is active)
+        <div className="space-y-6">
+          <div className="rounded-xl border border-primary/30 bg-card p-6 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 border-b border-border pb-3">
+              <Badge
+                variant="outline"
+                className="gap-1.5 border-primary/40 bg-primary/10 text-primary font-semibold"
+              >
+                <Shield className="h-3.5 w-3.5" />
+                System Administration Overview
+              </Badge>
+              <span className="text-xs text-muted-foreground font-mono">
+                API: /api/v1/dashboard
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="rounded-lg border border-border bg-background/50 p-4 space-y-1">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Total Organizations</span>
+                  <Building className="h-3.5 w-3.5 text-blue-500" />
+                </div>
+                <div className="text-xl font-bold font-mono">
+                  {isCurrentLoading ? (
+                    <Skeleton className="h-7 w-16" />
+                  ) : (
+                    systemMetrics?.total_organizations ?? 0
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground">Tenant organizations</p>
+              </div>
+
+              <div className="rounded-lg border border-border bg-background/50 p-4 space-y-1">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Total Users</span>
+                  <UserCheck className="h-3.5 w-3.5 text-emerald-500" />
+                </div>
+                <div className="text-xl font-bold font-mono">
+                  {isCurrentLoading ? (
+                    <Skeleton className="h-7 w-16" />
+                  ) : (
+                    systemMetrics?.total_users ?? 0
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground">Registered users</p>
+              </div>
+
+              <div className="rounded-lg border border-border bg-background/50 p-4 space-y-1">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Total Projects</span>
+                  <Briefcase className="h-3.5 w-3.5 text-purple-500" />
+                </div>
+                <div className="text-xl font-bold font-mono">
+                  {isCurrentLoading ? (
+                    <Skeleton className="h-7 w-16" />
+                  ) : (
+                    systemMetrics?.total_projects ?? 0
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground">Configured microservices</p>
+              </div>
+
+              <div className="rounded-lg border border-border bg-background/50 p-4 space-y-1">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Total Deployments</span>
+                  <Layers className="h-3.5 w-3.5 text-amber-500" />
+                </div>
+                <div className="text-xl font-bold font-mono">
+                  {isCurrentLoading ? (
+                    <Skeleton className="h-7 w-16" />
+                  ) : (
+                    systemMetrics?.total_deployments ?? 0
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground">Platform build executions</p>
+              </div>
+            </div>
+          </div>
+        </div>
       ) : isOrgWorkspace ? (
-        // ORGANIZATION WORKSPACE VIEW
+        // ORGANIZATION WORKSPACE VIEW (Triggered only when in org space)
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             <div className="rounded-xl border border-border bg-card p-4 space-y-1 shadow-sm">
@@ -284,7 +348,7 @@ export default function DashboardPage() {
                 <Users className="h-4 w-4 text-blue-500" />
               </div>
               <div className="text-2xl font-bold">
-                {isOrgLoading ? <Skeleton className="h-8 w-12" /> : orgMetrics?.members_count ?? 0}
+                {isCurrentLoading ? <Skeleton className="h-8 w-12" /> : orgMetrics?.members_count ?? 0}
               </div>
               <p className="text-[11px] text-muted-foreground">Total members</p>
             </div>
@@ -295,7 +359,7 @@ export default function DashboardPage() {
                 <Briefcase className="h-4 w-4 text-purple-500" />
               </div>
               <div className="text-2xl font-bold">
-                {isOrgLoading ? <Skeleton className="h-8 w-12" /> : orgMetrics?.projects_count ?? 0}
+                {isCurrentLoading ? <Skeleton className="h-8 w-12" /> : orgMetrics?.projects_count ?? 0}
               </div>
               <p className="text-[11px] text-muted-foreground">Configured services</p>
             </div>
@@ -306,7 +370,7 @@ export default function DashboardPage() {
                 <Building className="h-4 w-4 text-indigo-500" />
               </div>
               <div className="text-2xl font-bold">
-                {isOrgLoading ? <Skeleton className="h-8 w-12" /> : orgMetrics?.teams_count ?? 0}
+                {isCurrentLoading ? <Skeleton className="h-8 w-12" /> : orgMetrics?.teams_count ?? 0}
               </div>
               <p className="text-[11px] text-muted-foreground">Squad groups</p>
             </div>
@@ -317,7 +381,7 @@ export default function DashboardPage() {
                 <Layers className="h-4 w-4 text-amber-500" />
               </div>
               <div className="text-2xl font-bold">
-                {isOrgLoading ? <Skeleton className="h-8 w-12" /> : orgMetrics?.deployments_count ?? 0}
+                {isCurrentLoading ? <Skeleton className="h-8 w-12" /> : orgMetrics?.deployments_count ?? 0}
               </div>
               <p className="text-[11px] text-muted-foreground">Org-wide runs</p>
             </div>
@@ -328,7 +392,7 @@ export default function DashboardPage() {
                 <Activity className="h-4 w-4 text-emerald-500" />
               </div>
               <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                {isOrgLoading ? (
+                {isCurrentLoading ? (
                   <Skeleton className="h-8 w-16" />
                 ) : (
                   `${(orgMetrics?.success_rate ?? 100).toFixed(1)}%`
@@ -343,7 +407,7 @@ export default function DashboardPage() {
                 <Server className="h-4 w-4 text-rose-500" />
               </div>
               <div className="text-2xl font-bold">
-                {isOrgLoading ? <Skeleton className="h-8 w-12" /> : orgMetrics?.active_deployments_count ?? 0}
+                {isCurrentLoading ? <Skeleton className="h-8 w-12" /> : orgMetrics?.active_deployments_count ?? 0}
               </div>
               <p className="text-[11px] text-muted-foreground">In progress now</p>
             </div>
@@ -351,14 +415,14 @@ export default function DashboardPage() {
 
           <DeploymentSummaryTable
             deployments={orgMetrics?.recent_deployments}
-            isLoading={isOrgLoading}
+            isLoading={isCurrentLoading}
             title="Organization Deployment Stream"
             description={`Recent build pipelines and deployments executed within ${activeOrgName || 'this organization'}.`}
             emptyMessage="No recent deployments found for this organization. Create a project to start deploying."
           />
         </>
       ) : (
-        // PERSONAL WORKSPACE VIEW
+        // PERSONAL WORKSPACE VIEW (Triggered only when in personal space)
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="rounded-xl border border-border bg-card p-5 space-y-2 shadow-sm">
@@ -371,10 +435,12 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div>
-                {isUserLoading ? (
+                {isCurrentLoading ? (
                   <Skeleton className="h-8 w-24 my-1" />
                 ) : (
-                  <div className="text-2xl font-bold">{userMetrics?.assigned_projects_count ?? 0} Active</div>
+                  <div className="text-2xl font-bold">
+                    {userMetrics?.assigned_projects_count ?? 0} Active
+                  </div>
                 )}
                 <p className="text-xs text-muted-foreground mt-1">
                   Projects you are a collaborator or owner of
@@ -392,10 +458,12 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div>
-                {isUserLoading ? (
+                {isCurrentLoading ? (
                   <Skeleton className="h-8 w-24 my-1" />
                 ) : (
-                  <div className="text-2xl font-bold">{userMetrics?.deployments_triggered_count ?? 0} Executed</div>
+                  <div className="text-2xl font-bold">
+                    {userMetrics?.deployments_triggered_count ?? 0} Executed
+                  </div>
                 )}
                 <p className="text-xs text-muted-foreground mt-1">
                   Build and deployment runs initiated by you
@@ -413,10 +481,12 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div>
-                {isUserLoading ? (
+                {isCurrentLoading ? (
                   <Skeleton className="h-8 w-24 my-1" />
                 ) : (
-                  <div className="text-2xl font-bold">{userMetrics?.org_memberships_count ?? 0} Orgs</div>
+                  <div className="text-2xl font-bold">
+                    {userMetrics?.org_memberships_count ?? 0} Orgs
+                  </div>
                 )}
                 <p className="text-xs text-muted-foreground mt-1">
                   Tenant workspaces you have access to
@@ -427,7 +497,7 @@ export default function DashboardPage() {
 
           <DeploymentSummaryTable
             deployments={userMetrics?.recent_activity}
-            isLoading={isUserLoading}
+            isLoading={isCurrentLoading}
             title="Personal Deployment Activity"
             description="Recent builds and deployments triggered across your personal projects."
             emptyMessage="No recent activity found. Trigger a deployment from any of your assigned projects."
