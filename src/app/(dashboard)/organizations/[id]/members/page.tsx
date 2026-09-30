@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useParams } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@/lib/validation/zodResolver';
 import { OrgHeader } from '@/components/organizations/OrgHeader';
@@ -26,6 +26,7 @@ import {
   useRemoveOrgMember,
   useUpdateOrgMemberRole,
 } from '@/lib/hooks/api/useOrganizations';
+import { useWorkspaceStore } from '@/lib/store/useWorkspaceStore';
 import { inviteMemberSchema, InviteMemberValues } from '@/lib/validation/organizations';
 import {
   Form,
@@ -39,8 +40,22 @@ import { Users, UserPlus, Mail, Trash2 } from 'lucide-react';
 
 export default function OrgMembersPage() {
   const params = useParams();
+  const router = useRouter();
   const { toast } = useToast();
   const orgId = (params?.id as string) || '';
+
+  const hasHydrated = useWorkspaceStore((state) => state.hasHydrated);
+  const activeOrgId = useWorkspaceStore((state) => state.activeOrgId);
+
+  // Enforce workspace isolation
+  useEffect(() => {
+    if (!hasHydrated) return;
+    if (activeOrgId === null) {
+      router.replace('/dashboard');
+    } else if (activeOrgId !== orgId) {
+      router.replace(`/organizations/${activeOrgId}`);
+    }
+  }, [hasHydrated, activeOrgId, orgId, router]);
 
   const { data: members = [], isLoading } = useOrgMembers(orgId);
   const inviteMember = useInviteOrgMember(orgId);
@@ -116,6 +131,15 @@ export default function OrgMembersPage() {
       });
     }
   };
+
+  if (!hasHydrated || activeOrgId === null || activeOrgId !== orgId) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -241,53 +265,67 @@ export default function OrgMembersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {members.map((member) => (
-                    <tr key={member.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="py-3.5 px-4 font-medium text-xs">
-                        <div className="flex items-center gap-2.5">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
-                            {member.name.slice(0, 2).toUpperCase()}
-                          </div>
-                          <span>{member.name}</span>
-                        </div>
-                      </td>
-
-                      <td className="py-3.5 px-4 font-mono text-xs text-muted-foreground">
-                        {member.email}
-                      </td>
-
-                      <td className="py-3.5 px-4">
-                        <select
-                          value={member.role}
-                          onChange={(e) => handleRoleChange(member.id, member.name, e.target.value)}
-                          disabled={updateRole.isPending}
-                          className="h-7 rounded border border-input bg-background px-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary capitalize"
-                          aria-label={`Change ${member.name}'s role`}
-                        >
-                          <option value="Owner">Owner</option>
-                          <option value="Admin">Admin</option>
-                          <option value="Member">Member</option>
-                          <option value="Viewer">Viewer</option>
-                        </select>
-                      </td>
-
-                      <td className="py-3.5 px-4 text-xs text-muted-foreground">
-                        {member.joined_at ? new Date(member.joined_at).toLocaleDateString() : 'Active'}
-                      </td>
-
-                      <td className="py-3.5 px-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setPendingRemoveMember({ id: member.id, name: member.name })}
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          title="Remove member"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                  {members.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-xs text-muted-foreground">
+                        No members found in this organization.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    members.map((member) => {
+                      const memberId = member.user_id || member.id || '';
+                      const displayName = member.name || member.email || member.user_id || 'Member';
+                      const initials = (member.name || member.email || member.user_id || 'MB').slice(0, 2).toUpperCase();
+
+                      return (
+                        <tr key={memberId || displayName} className="hover:bg-muted/30 transition-colors">
+                          <td className="py-3.5 px-4 font-medium text-xs">
+                            <div className="flex items-center gap-2.5">
+                              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
+                                {initials}
+                              </div>
+                              <span className="truncate">{displayName}</span>
+                            </div>
+                          </td>
+
+                          <td className="py-3.5 px-4 font-mono text-xs text-muted-foreground">
+                            {member.email || '—'}
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            <select
+                              value={member.role}
+                              onChange={(e) => handleRoleChange(memberId, displayName, e.target.value)}
+                              disabled={updateRole.isPending}
+                              className="h-7 rounded border border-input bg-background px-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary capitalize"
+                              aria-label={`Change ${displayName}'s role`}
+                            >
+                              <option value="Owner">Owner</option>
+                              <option value="Admin">Admin</option>
+                              <option value="Member">Member</option>
+                              <option value="Viewer">Viewer</option>
+                            </select>
+                          </td>
+
+                          <td className="py-3.5 px-4 text-xs text-muted-foreground">
+                            {member.joined_at ? new Date(member.joined_at).toLocaleDateString() : 'Active'}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setPendingRemoveMember({ id: memberId, name: displayName })}
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              title="Remove member"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>

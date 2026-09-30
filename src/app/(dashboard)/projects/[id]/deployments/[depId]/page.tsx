@@ -65,13 +65,22 @@ export default function DeploymentConsolePage() {
     try {
       const newDep = await triggerDeploy.mutateAsync({
         branch: deployment?.branch,
-        commit_sha: deployment?.commit_sha,
+        commit_hash: deployment?.commit_hash || deployment?.commit_sha,
       });
+      const depLabel = newDep?.deployment_number
+        ? `#${newDep.deployment_number}`
+        : newDep?.id
+        ? newDep.id.slice(0, 8)
+        : '';
       toast({
         title: 'Redeployment Queued',
-        description: `Deployment #${newDep.deployment_number} queued.`,
+        description: depLabel
+          ? `Deployment ${depLabel} queued.`
+          : 'Redeployment queued successfully.',
       });
-      router.push(`/projects/${projectId}/deployments/${newDep.id}`);
+      if (newDep?.id) {
+        router.push(`/projects/${projectId}/deployments/${newDep.id}`);
+      }
     } catch (err: any) {
       toast({
         title: 'Redeploy Failed',

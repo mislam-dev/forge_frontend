@@ -68,11 +68,20 @@ export function ProjectHeader({ projectId }: ProjectHeaderProps) {
   const handleDeploy = async () => {
     try {
       const dep = await triggerDeploy.mutateAsync();
+      const depLabel = dep?.deployment_number
+        ? `#${dep.deployment_number}`
+        : dep?.id
+        ? dep.id.slice(0, 8)
+        : '';
       toast({
         title: 'Deployment Queued',
-        description: `Deployment #${dep.deployment_number} queued successfully.`,
+        description: depLabel
+          ? `Deployment ${depLabel} queued successfully.`
+          : 'Deployment queued successfully.',
       });
-      router.push(`/projects/${projectId}/deployments/${dep.id}`);
+      if (dep?.id) {
+        router.push(`/projects/${projectId}/deployments/${dep.id}`);
+      }
     } catch (err: any) {
       toast({
         title: 'Deploy Failed',

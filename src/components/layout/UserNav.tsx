@@ -116,15 +116,17 @@ export function UserNav() {
             </Link>
           </DropdownMenuItem>
 
-          <DropdownMenuItem asChild>
-            <Link
-              href={`/organizations/${activeOrgId || 'org-1'}`}
-              className="flex items-center cursor-pointer"
-            >
-              <Building2 className="mr-2 h-4 w-4" />
-              <span>Manage Organization</span>
-            </Link>
-          </DropdownMenuItem>
+          {activeOrgId && (
+            <DropdownMenuItem asChild>
+              <Link
+                href={`/organizations/${activeOrgId}`}
+                className="flex items-center cursor-pointer"
+              >
+                <Building2 className="mr-2 h-4 w-4" />
+                <span>Manage Organization</span>
+              </Link>
+            </DropdownMenuItem>
+          )}
 
           <DropdownMenuItem asChild>
             <Link href="#" className="flex items-center cursor-pointer">

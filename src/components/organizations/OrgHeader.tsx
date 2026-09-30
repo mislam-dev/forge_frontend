@@ -11,7 +11,6 @@ import {
   Building2,
   Users,
   Shield,
-  Layers,
 } from 'lucide-react';
 
 interface OrgHeaderProps {
@@ -25,7 +24,6 @@ export function OrgHeader({ orgId }: OrgHeaderProps) {
   const navLinks = [
     { label: 'Overview', href: `/organizations/${orgId}`, exact: true, icon: Building2 },
     { label: 'Members', href: `/organizations/${orgId}/members`, icon: Users },
-    { label: 'Teams', href: `/organizations/${orgId}/teams`, icon: Layers },
   ];
 
   if (isLoading) {

@@ -2238,6 +2238,47 @@ paths:
         '200':
           description: "Paginated deployment history"
 
+    post:
+      operationId: projects_id_deployments_post
+      tags:
+        - Deployments
+      summary: "Trigger a new project deployment"
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/HeaderOptionalOrganizationId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriggerDeploymentRequest'
+            example:
+              branch: "main"
+              commit_hash: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+      responses:
+        '201':
+          description: "Deployment queued successfully"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseDeployment'
+              example:
+                message: "Deployment triggered successfully."
+                data:
+                  id: "a1b2c3d4-e89b-12d3-a456-426614174000"
+                  project_id: "07c0060e-8e8c-44c1-942c-3004f5a6c5b6"
+                  triggered_by: "456e7890-e89b-12d3-a456-426614174000"
+                  branch: "main"
+                  commit_hash: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+                  status: "Queued"
+                  build_duration: null
+                  deploy_duration: null
+                  error_message: null
+                  created_at: "2026-08-12T17:00:00Z"
+                  updated_at: "2026-08-12T17:00:00Z"
+
   /deployments/{id}/status:
     patch:
       operationId: deployments_id_status_patch
@@ -3687,8 +3728,6 @@ components:
 
     TriggerDeploymentRequest:
       type: object
-      required:
-        - project_id
       properties:
         project_id:
           type: string
@@ -3697,6 +3736,43 @@ components:
           type: string
         commit_hash:
           type: string
+
+    ApiResponseDeployment:
+      type: object
+      properties:
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            project_id:
+              type: string
+              format: uuid
+            triggered_by:
+              type: string
+              format: uuid
+            branch:
+              type: string
+            commit_hash:
+              type: string
+            status:
+              type: string
+            build_duration:
+              type: integer
+              nullable: true
+            deploy_duration:
+              type: integer
+              nullable: true
+            error_message:
+              type: string
+              nullable: true
+            created_at:
+              type: string
+            updated_at:
+              type: string
 
     DeploymentResponse:
       type: object

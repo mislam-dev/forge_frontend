@@ -71,23 +71,39 @@ export function useDeploymentDetail(arg1: string, arg2?: string) {
   });
 }
 
-// 3. Trigger Deployment: POST /api/v1/deployments
+// 3. Trigger Deployment: POST /api/v1/projects/:id/deployments
 export function useTriggerDeployment(projectId?: string) {
   const queryClient = useQueryClient();
 
   return useMutation<DeploymentDTO, Error, TriggerDeploymentRequest | void>({
     mutationFn: async (payload) => {
-      const body: TriggerDeploymentRequest = {
-        project_id: payload?.project_id || projectId,
-        branch: payload?.branch,
-        commit_hash: payload?.commit_hash || payload?.commit_sha,
-        environment: payload?.environment || 'production',
-      };
-      const res = (await apiClient.post('/api/v1/deployments', body)) as unknown as ApiResponse<DeploymentDTO>;
+      const targetProjectId = payload?.project_id || projectId;
+      if (!targetProjectId) {
+        throw new Error('Project ID is required to trigger a deployment.');
+      }
+
+      const body: TriggerDeploymentRequest = {};
+      if (payload?.branch) body.branch = payload.branch;
+      const commit = payload?.commit_hash || payload?.commit_sha;
+      if (commit) body.commit_hash = commit;
+
+      const res = (await apiClient.post(
+        `/api/v1/projects/${targetProjectId}/deployments`,
+        body,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      )) as unknown as ApiResponse<DeploymentDTO>;
       return res.data;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      const targetProjectId = (variables as TriggerDeploymentRequest | undefined)?.project_id || projectId;
       queryClient.invalidateQueries({ queryKey: deploymentsKeys.all });
+      if (targetProjectId) {
+        queryClient.invalidateQueries({ queryKey: deploymentsKeys.list(targetProjectId) });
+      }
     },
   });
 }

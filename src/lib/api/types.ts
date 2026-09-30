@@ -202,11 +202,12 @@ export interface CreateOrgRequest {
 }
 
 export interface OrgMemberDTO {
-  id: string;
-  org_id: string;
+  id?: string;
+  org_id?: string;
+  organization_id?: string;
   user_id: string;
-  name: string;
-  email: string;
+  name?: string;
+  email?: string | null;
   role: 'Owner' | 'Admin' | 'Member' | 'Viewer' | 'admin' | 'developer' | 'viewer' | string;
   joined_at: string;
 }
@@ -516,14 +517,19 @@ export interface DeploymentDTO {
   finished_at?: string;
   created_at: string;
   updated_at?: string;
+  build_duration?: number | null;
+  deploy_duration?: number | null;
+  error_message?: string | null;
 }
 
+export type ApiResponseDeployment = ApiResponse<DeploymentDTO>;
+
 export interface TriggerDeploymentRequest {
-  project_id?: string;
   branch?: string;
   commit_hash?: string;
-  commit_sha?: string;
+  commit_sha?: string; // backwards compatibility
   environment?: 'development' | 'staging' | 'production' | string;
+  project_id?: string; // backwards compatibility
 }
 
 export interface RollbackProjectRequest {
@@ -583,31 +589,41 @@ export interface UnreadCountDTO {
 // ==========================================
 
 export interface HealthLiveDTO {
-  status: string;
-  uptime_seconds: number;
+  status: 'healthy' | string;
+  service: string;
+  version: string;
+  environment: string;
+  timestamp: string;
+}
+
+export interface HealthCheckItem {
+  status: 'healthy' | 'unhealthy' | string;
+  latency_ms: number | null;
+  message?: string;
 }
 
 export interface HealthReadyDTO {
-  status: string;
-  database: string;
-  rabbitmq: string;
+  status: 'ready' | 'not_ready' | string;
+  service: string;
+  timestamp: string;
+  checks: {
+    database?: HealthCheckItem;
+    job_queue?: HealthCheckItem;
+    container_runtime?: HealthCheckItem;
+    [key: string]: HealthCheckItem | undefined;
+  };
 }
 
 export interface HealthDeepDTO {
-  status: string;
-  database_pool: { status: string; latency_ms?: number };
-  rabbitmq: { status: string; queue_depth?: number };
-  redis?: { status: string };
-  loki?: { status: string };
-  docker?: { status: string };
+  status: 'healthy' | 'degraded' | 'unhealthy' | string;
+  service: string;
+  version: string;
+  environment: string;
+  uptime_seconds: number;
+  timestamp: string;
 }
 
-export interface HealthStatusDTO {
-  status: 'healthy' | 'degraded' | 'unhealthy' | string;
-  uptime_seconds: number;
-  database: 'connected' | 'disconnected' | 'up' | 'down' | string;
-  version?: string;
-}
+export type HealthStatusDTO = HealthReadyDTO;
 
 export interface DeploymentSummaryItem {
   id: string;

@@ -12,6 +12,7 @@ import {
   useOrgDashboard,
   useSystemDashboard,
   useSystemHealth,
+  useHealthDeep,
 } from '@/lib/hooks/api/useDashboard';
 import { useWorkspaceStore } from '@/lib/store/useWorkspaceStore';
 import { useIsSystemAdmin } from '@/lib/hooks/api/useUserProfile';
@@ -29,6 +30,8 @@ import {
   Layers,
   Shield,
   UserCheck,
+  Clock,
+  CheckCircle2,
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -73,19 +76,31 @@ export default function DashboardPage() {
     enabled: isSystemAdmin && showAdminView,
   });
 
-  // 4. System Health Status
+  // 4. System Health Status (Readiness Probe)
   const {
     data: health,
     isLoading: isHealthLoading,
     isError: isHealthError,
+    refetch: refetchHealth,
   } = useSystemHealth();
+
+  // 5. Deep Health Diagnostic Query - enabled ONLY when system admin is viewing admin view
+  const {
+    data: deepHealth,
+    isLoading: isDeepHealthLoading,
+    refetch: refetchDeepHealth,
+  } = useHealthDeep({
+    enabled: isSystemAdmin && showAdminView,
+  });
 
   const isRefetchingAny =
     isUserRefetching || isOrgRefetching || isSystemRefetching;
 
   const handleRefresh = () => {
+    refetchHealth();
     if (showAdminView) {
       refetchSystem();
+      refetchDeepHealth();
     } else if (isOrgWorkspace) {
       refetchOrg();
     } else {
@@ -143,7 +158,7 @@ export default function DashboardPage() {
                 <AlertCircle className="h-3.5 w-3.5" />
                 Backend Offline
               </Badge>
-            ) : health?.status === 'healthy' ? (
+            ) : health?.status === 'healthy' || health?.status === 'ready' ? (
               <Badge
                 variant="outline"
                 className="gap-1.5 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
@@ -336,6 +351,139 @@ export default function DashboardPage() {
                 <p className="text-[11px] text-muted-foreground">Platform build executions</p>
               </div>
             </div>
+          </div>
+
+          {/* Deep Health & Infrastructure Diagnostics Panel */}
+          <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className="gap-1.5 border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold"
+                >
+                  <Activity className="h-3.5 w-3.5" />
+                  Deep Infrastructure Diagnostics
+                </Badge>
+                <span className="text-xs text-muted-foreground font-mono">
+                  API: /api/v1/health/deep &amp; /api/v1/health/ready
+                </span>
+              </div>
+              {deepHealth?.environment && (
+                <Badge variant="secondary" className="capitalize text-xs font-mono">
+                  Env: {deepHealth.environment}
+                </Badge>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="rounded-lg border border-border bg-background/50 p-4 space-y-1">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Platform Service</span>
+                  <Server className="h-3.5 w-3.5 text-blue-500" />
+                </div>
+                <div className="text-lg font-bold font-mono">
+                  {isDeepHealthLoading ? (
+                    <Skeleton className="h-6 w-24" />
+                  ) : (
+                    deepHealth?.service ?? 'forge-platform'
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground">v{deepHealth?.version ?? '1.0.0'}</p>
+              </div>
+
+              <div className="rounded-lg border border-border bg-background/50 p-4 space-y-1">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Uptime</span>
+                  <Clock className="h-3.5 w-3.5 text-emerald-500" />
+                </div>
+                <div className="text-lg font-bold font-mono">
+                  {isDeepHealthLoading ? (
+                    <Skeleton className="h-6 w-20" />
+                  ) : deepHealth?.uptime_seconds ? (
+                    `${Math.floor(deepHealth.uptime_seconds / 86400)}d ${Math.floor((deepHealth.uptime_seconds % 86400) / 3600)}h`
+                  ) : (
+                    'N/A'
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground">System operational time</p>
+              </div>
+
+              <div className="rounded-lg border border-border bg-background/50 p-4 space-y-1">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Deep Probe Status</span>
+                  <ShieldCheck className="h-3.5 w-3.5 text-purple-500" />
+                </div>
+                <div className="text-lg font-bold font-mono capitalize">
+                  {isDeepHealthLoading ? (
+                    <Skeleton className="h-6 w-16" />
+                  ) : (
+                    deepHealth?.status ?? 'healthy'
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground">Aggregated health check</p>
+              </div>
+
+              <div className="rounded-lg border border-border bg-background/50 p-4 space-y-1">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Readiness Probe</span>
+                  <Activity className="h-3.5 w-3.5 text-amber-500" />
+                </div>
+                <div className="text-lg font-bold font-mono capitalize">
+                  {isHealthLoading ? (
+                    <Skeleton className="h-6 w-16" />
+                  ) : (
+                    health?.status ?? 'ready'
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground">Traffic routing readiness</p>
+              </div>
+            </div>
+
+            {/* Core Dependency Checks Breakdown */}
+            {health?.checks && (
+              <div className="pt-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                  Core Dependency Checks
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {Object.entries(health.checks).map(([key, check]) => {
+                    if (!check) return null;
+                    const isHealthy = check.status === 'healthy';
+                    return (
+                      <div
+                        key={key}
+                        className={`rounded-lg border p-3 flex items-center justify-between ${
+                          isHealthy
+                            ? 'border-border bg-background/50'
+                            : 'border-destructive/30 bg-destructive/5'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          {isHealthy ? (
+                            <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                          ) : (
+                            <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+                          )}
+                          <div>
+                            <p className="text-xs font-medium capitalize">
+                              {key.replace(/_/g, ' ')}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {check.message || (isHealthy ? 'Healthy' : 'Unavailable')}
+                            </p>
+                          </div>
+                        </div>
+                        {check.latency_ms !== null && check.latency_ms !== undefined && (
+                          <Badge variant="secondary" className="font-mono text-[10px] h-5 px-1.5">
+                            {check.latency_ms}ms
+                          </Badge>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       ) : isOrgWorkspace ? (

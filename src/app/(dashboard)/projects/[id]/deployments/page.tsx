@@ -40,9 +40,16 @@ export default function ProjectDeploymentsHistoryPage() {
   const handleTriggerDeploy = async () => {
     try {
       const dep = await triggerDeploy.mutateAsync();
+      const depLabel = dep?.deployment_number
+        ? `#${dep.deployment_number}`
+        : dep?.id
+        ? dep.id.slice(0, 8)
+        : '';
       toast({
         title: 'Deployment Queued',
-        description: `Deployment #${dep.deployment_number} has been queued.`,
+        description: depLabel
+          ? `Deployment ${depLabel} has been queued.`
+          : 'Deployment has been queued.',
       });
     } catch (err: any) {
       toast({

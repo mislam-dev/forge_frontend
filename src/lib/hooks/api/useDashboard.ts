@@ -20,7 +20,7 @@ export const dashboardKeys = {
   metrics: () => [...dashboardKeys.all, 'metrics'] as const,
   healthLive: () => [...dashboardKeys.all, 'health-live'] as const,
   healthReady: () => [...dashboardKeys.all, 'health-ready'] as const,
-  healthDeep: () => [...dashboardKeys.all, 'health-deep'] as const,
+  healthDeep: (timeoutMs?: number) => [...dashboardKeys.all, 'health-deep', timeoutMs] as const,
   health: () => [...dashboardKeys.all, 'health'] as const,
 };
 
@@ -66,37 +66,44 @@ export function useOrgDashboard(orgId?: string | null, options?: { enabled?: boo
 }
 
 // 4. Kubernetes Liveness Probe: GET /api/v1/health/live
-export function useHealthLive() {
+export function useHealthLive(options?: { enabled?: boolean }) {
   return useQuery<HealthLiveDTO>({
     queryKey: dashboardKeys.healthLive(),
     queryFn: async () => {
-      const res = (await apiClient.get('/api/v1/health/live')) as unknown as ApiResponse<HealthLiveDTO>;
-      return res.data;
+      const res = await apiClient.get('/api/v1/health/live');
+      return ((res as any)?.data ?? res) as HealthLiveDTO;
     },
+    enabled: options?.enabled ?? true,
     refetchInterval: 15000,
   });
 }
 
-// 5. Readiness Probe (PostgreSQL & RabbitMQ): GET /api/v1/health/ready
-export function useHealthReady() {
+// 5. Readiness Probe (PostgreSQL, RabbitMQ, Container Runtime): GET /api/v1/health/ready
+export function useHealthReady(options?: { enabled?: boolean }) {
   return useQuery<HealthReadyDTO>({
     queryKey: dashboardKeys.healthReady(),
     queryFn: async () => {
-      const res = (await apiClient.get('/api/v1/health/ready')) as unknown as ApiResponse<HealthReadyDTO>;
-      return res.data;
+      const res = await apiClient.get('/api/v1/health/ready', {
+        validateStatus: (status) => (status >= 200 && status < 300) || status === 503,
+      });
+      return ((res as any)?.data ?? res) as HealthReadyDTO;
     },
+    enabled: options?.enabled ?? true,
     refetchInterval: 15000,
   });
 }
 
 // 6. Deep Diagnostic Probe: GET /api/v1/health/deep
-export function useHealthDeep() {
+export function useHealthDeep(options?: { timeout_ms?: number; enabled?: boolean }) {
   return useQuery<HealthDeepDTO>({
-    queryKey: dashboardKeys.healthDeep(),
+    queryKey: dashboardKeys.healthDeep(options?.timeout_ms),
     queryFn: async () => {
-      const res = (await apiClient.get('/api/v1/health/deep')) as unknown as ApiResponse<HealthDeepDTO>;
-      return res.data;
+      const res = await apiClient.get('/api/v1/health/deep', {
+        params: options?.timeout_ms ? { timeout_ms: options.timeout_ms } : undefined,
+      });
+      return ((res as any)?.data ?? res) as HealthDeepDTO;
     },
+    enabled: options?.enabled ?? true,
     refetchInterval: 30000,
   });
 }
@@ -114,13 +121,16 @@ export function useDashboardMetrics() {
   });
 }
 
-export function useSystemHealth() {
+export function useSystemHealth(options?: { enabled?: boolean }) {
   return useQuery<HealthStatusDTO>({
     queryKey: dashboardKeys.health(),
     queryFn: async () => {
-      const res = (await apiClient.get('/api/v1/health/ready')) as unknown as ApiResponse<HealthStatusDTO>;
-      return res.data;
+      const res = await apiClient.get('/api/v1/health/ready', {
+        validateStatus: (status) => (status >= 200 && status < 300) || status === 503,
+      });
+      return ((res as any)?.data ?? res) as HealthStatusDTO;
     },
+    enabled: options?.enabled ?? true,
     refetchInterval: 15000,
   });
 }

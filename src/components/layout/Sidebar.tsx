@@ -76,7 +76,7 @@ export function Sidebar() {
       } else if (pathname.startsWith('/teams/')) {
         // Inside child team route (/teams/:id/members, /teams/new) -> redirect to parent /teams
         router.push('/teams');
-      } else if (pathname.startsWith('/organizations/') && targetOrgId) {
+      } else if (pathname.startsWith('/organizations') && targetOrgId) {
         router.push(`/organizations/${targetOrgId}`);
       }
     }

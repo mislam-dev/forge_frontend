@@ -28,8 +28,16 @@ The system SHALL present an overview dashboard on route `/dashboard` dynamically
 - **THEN** the system SHALL invoke `GET /api/v1/dashboard` and render an extra labeled section designated with an administrative badge displaying total organizations, total users, total projects, and total deployments.
 
 #### Scenario: System health indicator reflects backend availability
-- **WHEN** the backend health endpoint responds with operational status
-- **THEN** the system SHALL render a green status indicator showing healthy services, or an alert badge when degraded.
+- **WHEN** the backend health probe responds with operational status (`status === 'healthy'` from liveness probe or `status === 'ready'` from readiness probe)
+- **THEN** the system SHALL render an emerald status badge showing "Systems Operational", or render an alert badge when degraded or offline.
+
+#### Scenario: Readiness probe reports degraded dependencies
+- **WHEN** `/health/ready` returns HTTP 503 or `status === 'not_ready'` with one or more unhealthy dependency checks
+- **THEN** the system health indicator SHALL transition to "Degraded Performance" or display offline status without triggering unhandled runtime exceptions.
+
+#### Scenario: Deep health check report in Administrator View
+- **WHEN** an authorized System Administrator activates the administrator view on `/dashboard`
+- **THEN** the system SHALL query `/health/deep` (or `/api/v1/health/deep`) and render platform uptime, service version, environment details, and granular dependency health states.
 
 #### Scenario: Recent deployment items formatting
 - **WHEN** recent deployments or activities are rendered in `/dashboard`
@@ -173,7 +181,7 @@ The system SHALL provide an interactive build console at `/projects/[id]/deploym
 - **THEN** the browser triggers download of `/api/v1/deployments/:id/logs/download` as a `.log` attachment.
 
 ### Requirement: Organizations and Tenant Management
-The system SHALL provide organization views at `/organizations` and `/organizations/[id]` supporting organization listing, tenant creation, member role management (`Owner`, `Admin`, `Member`, `Viewer`), and email invitations, validated with Zod schemas and React Hook Form.
+The system SHALL provide organization views at `/organizations` and `/organizations/[id]` supporting organization listing, tenant creation, member role management (`Owner`, `Admin`, `Member`, `Viewer`), and email invitations, validated with Zod schemas and React Hook Form; member previews and member management tables SHALL safely render avatar initials, display labels, and action dialogs without runtime exceptions when member records lack a `name` property or contain null `email` values; the organization detail view and header SHALL omit internal team tabs and preview widgets, consolidating team interactions into the primary sidebar teams section.
 
 #### Scenario: Creating a new organization
 - **WHEN** a user inputs a valid organization name and submits the creation modal
@@ -191,16 +199,24 @@ The system SHALL provide organization views at `/organizations` and `/organizati
 - **WHEN** an administrator selects a new role (`Owner`, `Admin`, `Member`, `Viewer`) for a member in the organization members table
 - **THEN** the system SHALL invoke `PATCH /api/v1/organizations/:id/members/:memberId` with `{ role }`, update the member's role in the table, and display a confirmation toast.
 
+#### Scenario: Viewing organization members preview when member names are undefined
+- **WHEN** an authenticated user views `/organizations/[id]` and the API returns member records conforming to `OrgMemberResponse` without `name` fields
+- **THEN** the Members Preview card SHALL render without runtime exceptions, deriving display initials from available identifiers (`email`, `user_id`, or a fallback placeholder) and displaying a fallback user identifier.
+
+#### Scenario: Viewing organization members management table when member names are undefined
+- **WHEN** an administrator views `/organizations/[id]/members` and member records lack `name` fields
+- **THEN** the members table SHALL render without throwing exceptions, computing avatar initials safely and displaying the available email or fallback label, and role change / removal actions SHALL reference the member's valid identifier (`user_id` or `id`).
+
 ### Requirement: Workspace Navigation & Organization Scope
-The system SHALL eliminate the global "All Organizations" directory page (`/organizations`) and its corresponding breadcrumb back-links, redirecting any requests for `/organizations` to the user's active organization (`/organizations/[id]`), and SHALL enforce workspace route isolation by redirecting to `/dashboard` when personal workspace is activated, and redirecting child project and team routes to their respective parent directories when organization workspaces switch or do not match; during page reloads or initial page loads, workspace route isolation evaluation SHALL be deferred until application store hydration and entity data loading are complete.
+The system SHALL eliminate the global "All Organizations" directory page (`/organizations`) and its corresponding breadcrumb back-links, redirecting any requests for `/organizations` to the user's active organization (`/organizations/[id]`), and SHALL enforce workspace route isolation by redirecting to `/dashboard` when personal workspace is activated, and redirecting child project, child team, and organization routes when organization workspaces switch or do not match; during page reloads or initial page loads, workspace route isolation evaluation SHALL be deferred until application store hydration and entity data loading are complete.
 
 #### Scenario: Navigating to `/organizations`
 - **WHEN** a user visits `/organizations` directly or through legacy links
 - **THEN** the system SHALL immediately redirect the user to `/organizations/${activeOrgId || 'org-1'}`.
 
 #### Scenario: Viewing organization detail header
-- **WHEN** a user views an organization page (`/organizations/[id]`, `/organizations/[id]/members`, `/organizations/[id]/teams`)
-- **THEN** the header SHALL NOT display an "All Organizations" breadcrumb back button.
+- **WHEN** a user views an organization page (`/organizations/[id]`, `/organizations/[id]/members`)
+- **THEN** the header SHALL NOT display an "All Organizations" breadcrumb back button, and SHALL NOT display a Teams tab.
 
 #### Scenario: Reloading a team member view or scoped page
 - **WHEN** a user reloads or directly visits a team member view (`/teams/[id]/members`), teams directory (`/teams`), or project child route while in an organization workspace
@@ -217,6 +233,14 @@ The system SHALL eliminate the global "All Organizations" directory page (`/orga
 #### Scenario: Switching to personal workspace while inside projects or teams
 - **WHEN** a user switches to personal profile workspace while currently on any project route (`/projects`, `/projects/[id]/*`), team route (`/teams`, `/teams/[id]/*`), or organization route
 - **THEN** the system SHALL redirect the user to `/dashboard`.
+
+#### Scenario: Switching organization workspace while on an organization route
+- **WHEN** a user switches to a different organization workspace while viewing an organization page (`/organizations/[id]`, `/organizations/[id]/members`)
+- **THEN** the system SHALL redirect the user to the overview page of the newly selected organization (`/organizations/${newOrgId}`).
+
+#### Scenario: Accessing organization view with mismatched active workspace
+- **WHEN** a user loads or views an organization route (`/organizations/[id]`, `/organizations/[id]/members`) where the path `id` does not match the active workspace context after store hydration
+- **THEN** the system SHALL enforce isolation and redirect the user to `/dashboard` if personal workspace is active, or redirect to `/organizations/${activeOrgId}` if in an organization workspace.
 
 #### Scenario: Accessing project or team from mismatched workspace after load
 - **WHEN** a user navigates to or loads a project or team whose organization identifier does not match the active workspace context after store hydration and queries complete
@@ -249,7 +273,7 @@ The system SHALL support Next.js parallel and intercepting routing for organizat
 - **THEN** the system renders the standalone organization creation page in the dashboard shell.
 
 ### Requirement: Global and Organization Teams Management
-The system SHALL provide team management at `/teams` and `/organizations/[id]/teams` allowing users to view teams, create new teams, assign team members with designated roles strictly restricted to backend `TeamRole` enum variants (`viewer`, `developer`, `admin`), inspect team rosters safely handling backend member schemas (`team_id`, `user_id`, `role`, `joined_at`), update member roles, and remove members from a team, validated with React Hook Form and Zod schemas.
+The system SHALL provide team management centralized at `/teams` (and `/teams/[id]/members`) allowing users to view teams, create new teams, assign team members with designated roles strictly restricted to backend `TeamRole` enum variants (`viewer`, `developer`, `admin`), inspect team rosters safely handling backend member schemas (`team_id`, `user_id`, `role`, `joined_at`), update member roles, and remove members from a team, validated with React Hook Form and Zod schemas; requests to legacy `/organizations/[id]/teams` SHALL redirect to `/teams`.
 
 #### Scenario: Creating a team
 - **WHEN** a user fills in team name and description and clicks "Create Team"
@@ -278,6 +302,10 @@ The system SHALL provide team management at `/teams` and `/organizations/[id]/te
 #### Scenario: Removing a member from a team
 - **WHEN** a user clicks the remove action for a team member identified by `user_id` or `id` and confirms the action
 - **THEN** the system SHALL remove the member from the team roster and update the team member count.
+
+#### Scenario: Accessing legacy organization teams route
+- **WHEN** a user navigates to `/organizations/[id]/teams` directly or through legacy links
+- **THEN** the system SHALL redirect the user to `/teams`.
 
 ### Requirement: In-App Notifications Feed
 The system SHALL provide a notification center at `/notifications` listing user notifications categorized by severity (info, warning, error, success) or backend `type_name` with read/unread filtering, gracefully parsing paginated response envelopes (`{ data: [...], page, per_page, total, total_pages }`), unread count polling via `GET /api/v1/notifications/unread-count`, single read via `PATCH /api/v1/notifications/:id/read`, mark-all-read via `PATCH /api/v1/notifications/read-all`, dismissal via `DELETE /api/v1/notifications/:id`, and live SSE alerts via `GET /api/v1/notifications/stream`.
